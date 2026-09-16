@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/joneskim/bango"
+	"github.com/emusoi/bango"
 )
 
 //go:embed web

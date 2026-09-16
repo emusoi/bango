@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/joneskim/bango"
+	"github.com/emusoi/bango"
 )
 
 const (

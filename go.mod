@@ -1,4 +1,4 @@
-module github.com/joneskim/bango
+module github.com/emusoi/bango
 
 go 1.26.1
 

@@ -11,6 +11,15 @@ bango -- mia panel dashboard
 
 `bango` is Swahili for a signboard: the thing you pin notices to.
 
+## Install
+
+```sh
+go install github.com/emusoi/bango/cmd/bango@latest
+```
+
+The renderer is one binary. A producer needs nothing installed — it emits JSON,
+and `SPEC.md` is the whole contract.
+
 ## Twenty lines of shell
 
 ```sh
@@ -80,7 +89,7 @@ Any language. The document is the contract and `jq` is a perfectly good producer
 In Go:
 
 ```go
-import "github.com/joneskim/bango"
+import "github.com/emusoi/bango"
 
 p := bango.Panel{
     Version: bango.Version, ID: "items", Title: "items",
@@ -118,3 +127,7 @@ this repository
 
 That is one mechanism, not a second kind of action: run a command, and if what
 comes back is a panel, render it.
+
+## License
+
+MIT. See `LICENSE`.

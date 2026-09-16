@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/joneskim/bango"
+	"github.com/emusoi/bango"
 )
 
 const sample = `{"bango":1,"id":"t","title":"t","sections":[{"id":"s","rows":[{"id":"r","fields":[{"name":"a","value":"one"}]}]}]}`

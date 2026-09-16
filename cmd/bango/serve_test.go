@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/joneskim/bango"
+	"github.com/emusoi/bango"
 )
 
 func testServer(t *testing.T, readOnly bool) *server {
