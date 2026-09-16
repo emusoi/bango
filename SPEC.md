@@ -171,6 +171,56 @@ fedora …`, and bango would be none the wiser. That is the better shape when a
 producer has somewhere to put it; `--via` is what makes every other tool work
 today.
 
+## A browser
+
+A browser cannot run a subprocess or read a pipe, so it needs a server. That
+server is `bango --serve`, not anything the producer has to grow.
+
+```sh
+bango --serve 127.0.0.1:0 --watch 5 -- mia api dashboard --bango
+http://127.0.0.1:59065/?t=31c073d0…
+```
+
+| | |
+|---|---|
+| `GET /` | the page |
+| `GET /panel` | `{revision, readOnly, panel}` |
+| `GET /events` | server-sent events: one `id: <revision>` + `data: {panel}` per change |
+| `POST /act` | `{action, row, input}` — runs it, refreshes, returns the new panel |
+
+**Server-sent events, not websockets.** The server→client side is a one-way
+stream of panels, which is exactly what SSE is, in one HTTP request, with
+automatic reconnection and `Last-Event-ID` for free and no library on either
+end. The client→server side is a discrete command, which is a POST. A websocket
+would add framing, ping/pong and reconnection logic to buy bidirectional
+streaming that nothing here needs. If a client ever has to push continuously,
+that is when to revisit it.
+
+`--watch N` re-runs the producer every N seconds. Without it a panel changes
+only when an action changes it.
+
+### What guards it
+
+A local HTTP server is reachable by any page in the browser, so it is not
+trusted by origin:
+
+- It binds **loopback only**, on an ephemeral port by default.
+- Every request carries a 32-byte token, printed once in the URL and written to
+  `<cache>/bango/serve.token` with mode 0600. It is compared in constant time.
+- The `Host` header must be loopback and the expected port, which is what stops
+  DNS rebinding.
+- Any `Origin` that is not this server is refused, and no CORS headers are ever
+  sent, so a cross-origin read fails twice over.
+- The page is served under a Content-Security-Policy that allows it to talk to
+  nothing but its own origin.
+- `--read-only` serves a panel whose actions are refused with 403.
+- An action is refused unless the panel offers it **on that row**, so a client
+  cannot post a verb the screen never showed.
+
+Actions run under the same rule as drive mode: the user named the producer on
+the command line, and the server only runs what that producer's panel declares.
+A panel arriving on stdin is never served with actions enabled.
+
 ## Streaming
 
 A producer may emit newline-delimited panels; a renderer redraws on each. This

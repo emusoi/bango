@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>bango</title>
+<style>
+:root {
+  --bg: #fbfbfa; --fg: #1a1a18; --muted: #6b6b66; --line: #e4e4e0;
+  --sel: #ececeb; --waiting: #b4552d; --done: #3f7d4e; --dirty: #a5852b;
+  --blocked: #a33; --detached: #8a6d1f;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #16161a; --fg: #e8e8e4; --muted: #8a8a84; --line: #2a2a30;
+          --sel: #23232a; --waiting: #e0875a; --done: #7fbf8f; --dirty: #d6b75f;
+          --blocked: #e08080; --detached: #cbb26a; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 15px; font-weight: 600; margin: 0; }
+.sub { color: var(--muted); margin: 2px 0 20px; }
+.section { margin: 18px 0 6px; color: var(--muted); font-size: 12px;
+  text-transform: lowercase; letter-spacing: .04em; }
+table { width: 100%; border-collapse: collapse; }
+tr { border-bottom: 1px solid var(--line); cursor: default; }
+tr.sel { background: var(--sel); }
+td { padding: 5px 14px 5px 0; vertical-align: top; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 48ch; width: 1%; }
+td.grow { width: auto; }
+td.mark { width: 2ch; padding-right: 10px; }
+td.note { color: var(--muted); text-align: right; white-space: nowrap; }
+td.count { text-align: right; font-variant-numeric: tabular-nums; }
+td.time { color: var(--muted); font-variant-numeric: tabular-nums; }
+tr.dim td { color: var(--muted); }
+.mark[data-mark="waiting"] { color: var(--waiting); }
+.mark[data-mark="done"] { color: var(--done); }
+.mark[data-mark="dirty"] { color: var(--dirty); }
+.mark[data-mark="blocked"] { color: var(--blocked); }
+.mark[data-mark="detached"] { color: var(--detached); }
+.detail { padding: 6px 0 12px 2ch; color: var(--muted); white-space: pre-wrap; }
+.detail pre { margin: 6px 0 0; white-space: pre-wrap; font: inherit; }
+.acts { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+button { font: inherit; color: var(--fg); background: transparent;
+  border: 1px solid var(--line); border-radius: 4px; padding: 3px 9px; cursor: pointer; }
+button:hover { background: var(--sel); }
+button[disabled] { opacity: .4; cursor: not-allowed; }
+.empty { color: var(--muted); padding: 24px 0; }
+.hints { margin-top: 28px; color: var(--muted); font-size: 12px; }
+.alert { margin-top: 14px; color: var(--blocked); white-space: pre-wrap; }
+.off { position: fixed; top: 10px; right: 12px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title"></h1>
+  <div class="sub" id="subtitle"></div>
+  <div id="body"></div>
+  <div class="hints" id="hints"></div>
+  <div class="alert" id="alert"></div>
+</main>
+<div class="off" id="off" hidden>disconnected</div>
+<script>
+const token = new URLSearchParams(location.search).get("t") || "";
+const glyphs = { here: "▸", new: "○", working: "◐", waiting: "⏎",
+  done: "✓", dirty: "●", blocked: "⨯", detached: "⚠" };
+let panel = null, cursor = null, readOnly = false;
+
+const $ = (id) => document.getElementById(id);
+
+function rowsOf(p) {
+  const out = [];
+  const walk = (r, depth) => { out.push([r, depth]); (r.children || []).forEach(c => walk(c, depth + 1)); };
+  (p.sections || []).forEach(s => { if (!s.collapsed) (s.rows || []).forEach(r => walk(r, 0)); });
+  return out;
+}
+
+function columns(p) {
+  const names = [];
+  rowsOf(p).forEach(([r]) => (r.fields || []).forEach(f => {
+    if (!names.some(n => n.name === f.name)) names.push({ name: f.name, kind: f.kind || "text" });
+  }));
+  return names;
+}
+
+function draw() {
+  if (!panel) return;
+  $("title").textContent = panel.title || "";
+  $("subtitle").textContent = panel.subtitle || "";
+  const body = $("body");
+  body.replaceChildren();
+
+  const rows = rowsOf(panel);
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = panel.empty || "nothing here";
+    body.append(empty);
+  }
+  if (!rows.some(([r]) => r.id === cursor)) cursor = rows.length ? rows[0][0].id : null;
+
+  const cols = columns(panel);
+  for (const section of panel.sections || []) {
+    if (section.label) {
+      const head = document.createElement("div");
+      head.className = "section";
+      head.textContent = section.label;
+      body.append(head);
+    }
+    if (section.collapsed) continue;
+    const table = document.createElement("table");
+    const walk = (row, depth) => {
+      table.append(line(row, depth, cols));
+      if (row.id === cursor) {
+        const detail = details(row);
+        if (detail) table.append(detail);
+      }
+      (row.children || []).forEach(child => walk(child, depth + 1));
+    };
+    (section.rows || []).forEach(r => walk(r, 0));
+    body.append(table);
+  }
+  $("hints").textContent = (panel.hints || []).join("  ·  ");
+}
+
+function line(row, depth, cols) {
+  const tr = document.createElement("tr");
+  if (row.id === cursor) tr.classList.add("sel");
+  if (row.dim) tr.classList.add("dim");
+  tr.onclick = () => { cursor = row.id; draw(); };
+
+  const mark = document.createElement("td");
+  mark.className = "mark";
+  mark.dataset.mark = row.mark || "";
+  mark.textContent = glyphs[row.mark] || "";
+  tr.append(mark);
+
+  const byName = Object.fromEntries((row.fields || []).map(f => [f.name, f]));
+  cols.forEach((col, i) => {
+    const td = document.createElement("td");
+    const field = byName[col.name];
+    td.className = col.kind;
+    td.textContent = (i === 0 ? "  ".repeat(depth) : "") + (field ? field.value : "");
+    if (col.kind === "path" && field) td.title = field.value;
+    tr.append(td);
+  });
+
+  const spacer = document.createElement("td");
+  spacer.className = "grow";
+  tr.append(spacer);
+
+  const note = document.createElement("td");
+  note.className = "note";
+  note.textContent = row.note || "";
+  tr.append(note);
+  return tr;
+}
+
+function details(row) {
+  const tr = document.createElement("tr");
+  const td = document.createElement("td");
+  td.colSpan = 99;
+  td.className = "detail";
+  (row.facts || []).forEach(fact => {
+    const div = document.createElement("div");
+    div.textContent = fact;
+    td.append(div);
+  });
+  if ((row.preview || []).length) {
+    const pre = document.createElement("pre");
+    pre.textContent = row.preview.join("\n");
+    td.append(pre);
+  }
+  const acts = document.createElement("div");
+  acts.className = "acts";
+  for (const name of row.actions || []) {
+    const action = (panel.actions || {})[name];
+    if (!action) continue;
+    const button = document.createElement("button");
+    button.textContent = (action.label || name) + (action.key ? "  " + action.key : "");
+    button.disabled = readOnly;
+    button.onclick = (event) => { event.stopPropagation(); run(name, action, row); };
+    acts.append(button);
+  }
+  if (acts.childElementCount) td.append(acts);
+  tr.append(td);
+  return tr;
+}
+
+async function run(name, action, row) {
+  let input = "";
+  if (action.input) {
+    input = prompt(action.input) || "";
+    if (!input) return;
+  }
+  if (action.confirm && !confirm(action.confirm)) return;
+  $("alert").textContent = "";
+  const response = await fetch("/act?t=" + encodeURIComponent(token), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Bango-Token": token },
+    body: JSON.stringify({ action: name, row: row.id, input }),
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    $("alert").textContent = body.trim();
+    return;
+  }
+  const next = await response.json();
+  panel = next.panel;
+  draw();
+}
+
+function listen() {
+  const source = new EventSource("/events?t=" + encodeURIComponent(token));
+  source.onmessage = (event) => {
+    const payload = JSON.parse(event.data);
+    panel = payload.panel;
+    $("off").hidden = true;
+    draw();
+  };
+  source.onerror = () => { $("off").hidden = false; };
+}
+
+document.addEventListener("keydown", (event) => {
+  const rows = rowsOf(panel || {});
+  if (!rows.length) return;
+  let at = rows.findIndex(([r]) => r.id === cursor);
+  if (event.key === "j" || event.key === "ArrowDown") at = Math.min(at + 1, rows.length - 1);
+  else if (event.key === "k" || event.key === "ArrowUp") at = Math.max(at - 1, 0);
+  else return;
+  event.preventDefault();
+  cursor = rows[at][0].id;
+  draw();
+});
+
+fetch("/panel?t=" + encodeURIComponent(token), { headers: { "X-Bango-Token": token } })
+  .then(r => r.json())
+  .then(payload => { panel = payload.panel; readOnly = payload.readOnly; draw(); listen(); })
+  .catch(() => { $("title").textContent = "bango: could not reach the server"; });
+</script>
+</body>
+</html>

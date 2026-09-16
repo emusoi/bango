@@ -35,6 +35,9 @@ func main() {
 	height := flag.Int("height", 0, "override the measured height")
 	want := flag.String("id", "", "start on this panel")
 	print := flag.Bool("print", false, "render once to stdout and exit")
+	addr := flag.String("serve", "", "serve the panel to a browser on this address")
+	readOnly := flag.Bool("read-only", false, "serve without running actions")
+	watch := flag.Int("watch", 0, "re-run the producer every N seconds")
 	via := flag.String("via", "", "run the producer and its actions through this command")
 	viaSSH := flag.String("via-ssh", "", "run the producer and its actions on this host over ssh")
 	flag.Parse()
@@ -56,6 +59,14 @@ func main() {
 		os.Exit(exitInvalid)
 	}
 
+	opts.watch = *watch
+	if *addr != "" {
+		if len(producer) == 0 {
+			fmt.Fprintln(os.Stderr, "bango: --serve needs a producer: bango --serve 127.0.0.1:0 -- CMD")
+			os.Exit(exitInvalid)
+		}
+		os.Exit(serve(producer, opts, *addr, *readOnly))
+	}
 	if len(producer) > 0 {
 		os.Exit(drive(producer, opts))
 	}
@@ -70,6 +81,7 @@ type options struct {
 	asJSON    bool
 	print     bool
 	transport bango.Transport
+	watch     int
 }
 
 func fail(err error) int {

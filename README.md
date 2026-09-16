@@ -62,6 +62,18 @@ runs where the panel came from. `--via` passes argv straight through;
 `--via-ssh` shell-quotes every argument, because sshd runs what it gets through
 a shell.
 
+## In a browser
+
+```sh
+bango --serve 127.0.0.1:0 --watch 5 -- mia api dashboard --bango
+http://127.0.0.1:59065/?t=31c073d0…
+```
+
+The same document, rendered as a page, updating over server-sent events, with
+the panel's actions as buttons. Loopback only, a token on every request, `Host`
+and `Origin` both checked, and `--read-only` when you want the screen without
+the verbs.
+
 ## Writing a producer
 
 Any language. The document is the contract and `jq` is a perfectly good producer.
