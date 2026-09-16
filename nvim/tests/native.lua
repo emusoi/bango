@@ -41,5 +41,35 @@ local widest = 0
 for _, line in ipairs(drawn.lines) do widest = math.max(widest, layout.width(line)) end
 check("nothing overflows the width", widest <= 72, widest)
 
+-- two actions may share a key when no row offers both; the renderer must
+-- dispatch to whichever the row under the cursor allows.
+local shared = {
+  bango = 1, id = "shared", title = "shared",
+  sections = { { id = "all", rows = {
+    { id = "a", fields = { { name = "what", value = "one" } }, actions = { "open" } },
+    { id = "b", fields = { { name = "what", value = "two" } }, actions = { "resume" } },
+  } } },
+  actions = {
+    open = { key = "⏎", label = "open", verb = "true" },
+    resume = { key = "⏎", label = "resume", verb = "true" },
+  },
+}
+local native = require "bango.native"
+local chosen
+local handle = native.open {
+  panel = shared,
+  on_choice = function(choice) chosen = choice end,
+}
+if handle then
+  vim.api.nvim_set_current_win(handle.win)
+  vim.api.nvim_win_set_cursor(handle.win, { 4, 0 })
+  vim.api.nvim_exec_autocmds("CursorMoved", { buffer = handle.buf })
+  local enter = vim.api.nvim_replace_termcodes("<CR>", true, false, true)
+  vim.api.nvim_feedkeys(enter, "x", false)
+  check("a shared key reaches the second row's action",
+    chosen ~= nil and chosen.action == "resume", chosen and chosen.action or "nothing")
+  pcall(handle.close)
+end
+
 if failures > 0 then os.exit(1) end
 print("bango.nvim native renderer ok")

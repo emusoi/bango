@@ -210,21 +210,35 @@ function M.open(opts)
     vim.notify(table.concat(help, "\n"))
   end)
 
-  for name, action in pairs(panel.actions or {}) do
+  local bound = {}
+  local names = vim.tbl_keys(panel.actions or {})
+  table.sort(names)
+  for _, name in ipairs(names) do
+    local action = panel.actions[name]
     local keys = { action.key }
     for _, spelling in ipairs(spellings[action.key] or {}) do
       table.insert(keys, spelling)
     end
     for _, key in ipairs(keys) do
       if key and key ~= "" and not reserved[key] then
-        map(key, function()
-          local row = current()
-          if row and allows(row, name) then
-            act(name)
-          end
-        end)
+        bound[key] = bound[key] or {}
+        table.insert(bound[key], name)
       end
     end
+  end
+
+  for key, candidates in pairs(bound) do
+    map(key, function()
+      local row = current()
+      if not row then
+        return
+      end
+      for _, name in ipairs(candidates) do
+        if allows(row, name) then
+          return act(name)
+        end
+      end
+    end)
   end
 
   vim.api.nvim_create_autocmd("CursorMoved", {
