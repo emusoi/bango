@@ -423,13 +423,7 @@ func (m *model2) refresh() {
 }
 
 func (m *model2) View() string {
-	cursor := ""
-	if row, ok := m.selected(); ok {
-		cursor = row.ID
-	}
-	style := bango.Style{Width: m.width, Height: m.height, ASCII: m.opts.ascii,
-		Cursor: cursor, Folded: m.folded, Query: m.query}
-	lines := bango.Render(m.panel, style)
+	lines := m.paint()
 	switch m.state {
 	case filtering:
 		lines = append(lines, "", "/"+m.typed)

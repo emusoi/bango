@@ -83,6 +83,12 @@ renderer, which is the only party that knows how wide the window is.
 A renderer may express a mark with colour or weight as well, never with colour
 alone, and never with a glyph outside the set it declares.
 
+Colour follows `kind` as well: a `count` is the accent, a `ref` reads as a
+reference, a `time` is quiet, a section label is quiet and italic, and a `dim`
+row is quiet throughout. All of it comes from the terminal's own palette through
+adaptive colours, so a light theme and a dark one both work, and `--plain`
+turns it off entirely.
+
 ## Action
 
 | field | |

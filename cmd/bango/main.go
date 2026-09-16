@@ -35,6 +35,7 @@ func main() {
 	height := flag.Int("height", 0, "override the measured height")
 	want := flag.String("id", "", "start on this panel")
 	print := flag.Bool("print", false, "render once to stdout and exit")
+	plain := flag.Bool("plain", false, "no colour")
 	addr := flag.String("serve", "", "serve the panel to a browser on this address")
 	readOnly := flag.Bool("read-only", false, "serve without running actions")
 	watch := flag.Int("watch", 0, "re-run the producer every N seconds")
@@ -44,7 +45,7 @@ func main() {
 
 	producer := flag.Args()
 	opts := options{ascii: *ascii, width: *width, height: *height, want: *want,
-		asJSON: *asJSON, print: *print}
+		asJSON: *asJSON, print: *print, plain: *plain}
 	switch {
 	case *viaSSH != "" && *via != "":
 		fmt.Fprintln(os.Stderr, "bango: --via and --via-ssh are two answers to one question")
@@ -80,6 +81,7 @@ type options struct {
 	want      string
 	asJSON    bool
 	print     bool
+	plain     bool
 	transport bango.Transport
 	watch     int
 }
