@@ -49,6 +49,19 @@ actions, re-running the producer after each one.
 
 Argv is executed only when you typed the program that produced it.
 
+## Remote
+
+```sh
+ssh box mytool panel dash | bango           # read it; nothing can run
+bango --via-ssh fedora -- mia api dashboard --bango
+bango --via 'docker exec -i web' -- mytool panel dash
+```
+
+A transport covers the producer and its actions together, so what you act on
+runs where the panel came from. `--via` passes argv straight through;
+`--via-ssh` shell-quotes every argument, because sshd runs what it gets through
+a shell.
+
 ## Writing a producer
 
 Any language. The document is the contract and `jq` is a perfectly good producer.

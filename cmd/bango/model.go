@@ -253,7 +253,7 @@ func (m *model2) commit(name, input string) {
 		m.notice = "panels of panels are not wired yet"
 		return
 	}
-	if err := execute(action, choice); err != nil {
+	if err := execute(action, choice, m.opts.transport); err != nil {
 		m.notice = err.Error()
 		if retry, ok := retryFor(action, err.Error()); ok {
 			m.notice = err.Error() + " — retry with " + retry.Label
@@ -271,7 +271,7 @@ func retryFor(action bango.Action, refusal string) (bango.Retry, bool) {
 	return bango.Retry{}, false
 }
 
-func execute(action bango.Action, choice *Choice) error {
+func execute(action bango.Action, choice *Choice, through bango.Transport) error {
 	args := make([]string, 0, len(action.Args))
 	for _, arg := range action.Args {
 		switch arg {
@@ -285,7 +285,8 @@ func execute(action bango.Action, choice *Choice) error {
 			args = append(args, arg)
 		}
 	}
-	command := exec.Command(action.Verb, args...)
+	argv := through.Argv(action.Verb, args)
+	command := exec.Command(argv[0], argv[1:]...)
 	out, err := command.CombinedOutput()
 	if err != nil {
 		return &refusal{err: err, text: strings.TrimSpace(string(out))}
@@ -310,7 +311,7 @@ func (m *model2) refresh() {
 	if row, ok := m.selected(); ok {
 		keep = row.ID
 	}
-	panel, err := produce(m.producer, m.opts.want)
+	panel, err := produce(m.producer, m.opts.want, m.opts.transport)
 	if err != nil {
 		m.notice = err.Error()
 		return

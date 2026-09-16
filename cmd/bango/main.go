@@ -35,11 +35,26 @@ func main() {
 	height := flag.Int("height", 0, "override the measured height")
 	want := flag.String("id", "", "start on this panel")
 	print := flag.Bool("print", false, "render once to stdout and exit")
+	via := flag.String("via", "", "run the producer and its actions through this command")
+	viaSSH := flag.String("via-ssh", "", "run the producer and its actions on this host over ssh")
 	flag.Parse()
 
 	producer := flag.Args()
 	opts := options{ascii: *ascii, width: *width, height: *height, want: *want,
 		asJSON: *asJSON, print: *print}
+	switch {
+	case *viaSSH != "" && *via != "":
+		fmt.Fprintln(os.Stderr, "bango: --via and --via-ssh are two answers to one question")
+		os.Exit(exitInvalid)
+	case *viaSSH != "":
+		opts.transport = bango.ViaSSH(*viaSSH)
+	case *via != "":
+		opts.transport = bango.Via(strings.Fields(*via))
+	}
+	if opts.transport.Remote() && len(flag.Args()) == 0 {
+		fmt.Fprintln(os.Stderr, "bango: --via needs a producer to run: bango --via-ssh HOST -- CMD")
+		os.Exit(exitInvalid)
+	}
 
 	if len(producer) > 0 {
 		os.Exit(drive(producer, opts))
@@ -48,12 +63,13 @@ func main() {
 }
 
 type options struct {
-	ascii  bool
-	width  int
-	height int
-	want   string
-	asJSON bool
-	print  bool
+	ascii     bool
+	width     int
+	height    int
+	want      string
+	asJSON    bool
+	print     bool
+	transport bango.Transport
 }
 
 func fail(err error) int {
@@ -97,15 +113,16 @@ func pipe(r io.Reader, opts options) int {
 }
 
 func drive(producer []string, opts options) int {
-	panel, err := produce(producer, opts.want)
+	panel, err := produce(producer, opts.want, opts.transport)
 	if err != nil {
 		return fail(err)
 	}
 	return run(panel, opts, producer)
 }
 
-func produce(producer []string, want string) (bango.Panel, error) {
-	cmd := exec.Command(producer[0], producer[1:]...)
+func produce(producer []string, want string, through bango.Transport) (bango.Panel, error) {
+	argv := through.Argv(producer[0], producer[1:])
+	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {

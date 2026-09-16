@@ -127,9 +127,54 @@ after each one.
 `{row}`, `{input}` and `{choice}` are substituted as whole argv elements. There
 is no shell in that path.
 
+## Remote
+
+A panel is a document, so the read side needs nothing:
+
+```sh
+ssh box mytool panel dash | bango
+```
+
+That is select mode, which executes nothing, so a panel from a machine you do
+not control can describe whatever actions it likes and none of them run.
+
+To act, the actions have to run where the panel came from. A transport prefix
+applies to **both** the producer and its actions:
+
+```sh
+bango --via-ssh fedora -- mia api dashboard --bango
+bango --via 'docker exec -i web' -- mytool panel dash
+bango --via 'kubectl exec pod --' -- mytool panel dash
+bango --via 'mia run monduli' -- loco panel confirm --json
+```
+
+`--via` is an **argv prefix**: the verb and its arguments are appended as
+separate arguments and nothing is quoted, which is right for `docker exec`,
+`kubectl exec` and anything else that takes an argv.
+
+`--via-ssh` is different because sshd runs what it receives through the remote
+login shell. bango shell-quotes every element and sends one string, so a
+finding whose message is `two words; rm -rf /` arrives as one argument and
+nothing else happens. It also passes `ControlMaster=auto` and
+`ControlPersist=60s`, because drive mode opens a connection per action and the
+second one should be free.
+
+> The producer and its actions always share a transport. There is no way to
+> render a remote panel and run its actions locally: stdin is select-only, and
+> `--via` covers both halves. Actions run where the panel came from, so a
+> compromised producer can only choose argv that runs on the machine you already
+> asked.
+
+A tool that knows about remoteness itself needs none of this — `mia api
+dashboard --host fedora` could emit a panel whose verbs already say `mia run
+fedora …`, and bango would be none the wiser. That is the better shape when a
+producer has somewhere to put it; `--via` is what makes every other tool work
+today.
+
 ## Streaming
 
-A producer may emit newline-delimited panels; a renderer redraws on each. A
+A producer may emit newline-delimited panels; a renderer redraws on each. This
+works unchanged over ssh, because it is a pipe. A
 malformed document is reported and the last good panel stays on screen.
 
 On redraw the cursor is restored by row id. If that row is gone it holds its
