@@ -41,6 +41,23 @@ local function float(opts)
   return buf, win
 end
 
+function M.panel(opts)
+  return require("bango.native").open(opts)
+end
+
+function M.read(cmd, cwd)
+  local done = vim.system(cmd, { text = true, cwd = cwd }):wait()
+  if done.code ~= 0 then
+    return nil, vim.trim(done.stderr or "the producer failed")
+  end
+  local ok, panel = pcall(vim.json.decode, done.stdout,
+    { luanil = { object = true, array = true } })
+  if not ok then
+    return nil, "the producer did not print a panel"
+  end
+  return panel
+end
+
 function M.pick(opts)
   if vim.fn.executable(M.bin) == 0 then
     vim.notify("bango: not on PATH", vim.log.levels.ERROR)

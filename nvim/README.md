@@ -36,3 +36,27 @@ picker open. A subprocess can print a choice when it exits; it cannot drive the
 editor on every keystroke.
 
 Until a caller needs that, this is forty lines instead of four hundred.
+
+## Two renderers
+
+`require("bango").pick{…}` runs the real binary in a terminal float. One
+renderer, no second layout algorithm, and the right answer when all you need is
+a choice.
+
+`require("bango").panel{panel = …}` draws the same document in Lua. It exists
+for the one thing a subprocess cannot do: **preview inside the host editor while
+the cursor moves**. `on_move(row, back)` is called on every selection change —
+open a file, draw something, then call `back()` to return focus.
+
+```lua
+local bango = require "bango"
+local panel = bango.read({ "mytool", "panel", "hunks", "--bango" }, cwd)
+bango.panel {
+  panel = panel,
+  on_move = function(row, back) show(row.id); back() end,
+  on_choice = function(choice) act(choice) end,
+}
+```
+
+It shares the layout algorithm with the Go renderer, and the fixtures are run
+against both — a rule that only survives because the fixtures exist.
