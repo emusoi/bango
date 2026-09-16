@@ -26,7 +26,7 @@ func (e Invalid) Error() string {
 
 func Validate(p *Panel) error {
 	if p.Version == 0 {
-		return Invalid{"bango", "missing schema version"}
+		return Invalid{"bango", "no schema version — is this a bango document?"}
 	}
 	if p.Version != Version {
 		return Invalid{"bango", fmt.Sprintf("version %d, this renderer speaks %d", p.Version, Version)}

@@ -297,3 +297,14 @@ not a design position.
 `fixtures/` holds panels and their expected renderings at fixed widths. A
 renderer is correct when it reproduces them. A sentence in this document with no
 fixture behind it has not been checked.
+
+## Where a renderer draws
+
+A renderer reads the panel from stdin and draws on the terminal, which means
+those cannot be the same stream. When stdin or stdout is a pipe, a renderer
+opens `/dev/tty` for its own input and output — the way fzf does — so
+`mytool --panel | bango` works from a shell, inside a terminal buffer, and
+anywhere else a controlling terminal exists.
+
+Where there is no controlling terminal at all, it says so and names `--print`,
+rather than drawing nothing and waiting for a keystroke that cannot arrive.

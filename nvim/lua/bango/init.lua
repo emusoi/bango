@@ -47,10 +47,11 @@ function M.pick(opts)
     return
   end
   local out = vim.fn.tempname()
+  local complaint = vim.fn.tempname()
   local previous = vim.api.nvim_get_current_win()
   local buf, win = float(opts)
 
-  vim.fn.termopen({ "sh", "-c", M.command(opts, out) }, {
+  vim.fn.termopen({ "sh", "-c", M.command(opts, out) .. " 2> " .. vim.fn.shellescape(complaint) }, {
     on_exit = function(_, code)
       if vim.api.nvim_win_is_valid(win) then
         vim.api.nvim_win_close(win, true)
@@ -58,7 +59,20 @@ function M.pick(opts)
       if vim.api.nvim_win_is_valid(previous) then
         vim.api.nvim_set_current_win(previous)
       end
-      if code ~= 0 or vim.fn.filereadable(out) == 0 then
+      local said = ""
+      if vim.fn.filereadable(complaint) == 1 then
+        said = vim.trim(table.concat(vim.fn.readfile(complaint), "\n"))
+      end
+      vim.fn.delete(complaint)
+      if code ~= 0 and code ~= 130 then
+        vim.fn.delete(out)
+        vim.notify(said ~= "" and said or ("bango exited " .. code), vim.log.levels.ERROR)
+        return
+      end
+      if said ~= "" then
+        vim.notify(said, vim.log.levels.WARN)
+      end
+      if vim.fn.filereadable(out) == 0 then
         vim.fn.delete(out)
         return
       end

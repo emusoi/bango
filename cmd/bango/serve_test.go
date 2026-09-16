@@ -108,3 +108,13 @@ func TestTheServedPanelIsTheDocument(t *testing.T) {
 		t.Fatalf("what we serve must validate: %v", err)
 	}
 }
+
+func TestATerminalIsBorrowedWhenStreamsArePipes(t *testing.T) {
+	tty, borrowed := terminal()
+	if borrowed {
+		defer tty.Close()
+		if tty.Name() == "" {
+			t.Fatal("borrowed a terminal with no name")
+		}
+	}
+}

@@ -90,7 +90,11 @@ func fail(err error) int {
 }
 
 func read(r io.Reader, want string) ([]bango.Panel, error) {
-	dec := json.NewDecoder(r)
+	body, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	dec := json.NewDecoder(strings.NewReader(string(body)))
 	var out []bango.Panel
 	for {
 		var p bango.Panel
@@ -102,15 +106,43 @@ func read(r io.Reader, want string) ([]bango.Panel, error) {
 			if len(out) > 0 {
 				return out, nil
 			}
-			return nil, err
+			return nil, explain(body, err)
 		}
 		if err := bango.Validate(&p); err != nil {
-			return nil, err
+			return nil, explain(body, err)
 		}
 		if want == "" || p.ID == want {
 			out = append(out, p)
 		}
 	}
+}
+
+func explain(body []byte, err error) error {
+	text := strings.TrimSpace(string(body))
+	if text == "" {
+		return errors.New("the producer printed nothing")
+	}
+	var wrapped map[string]json.RawMessage
+	if json.Unmarshal(body, &wrapped) == nil {
+		if _, envelope := wrapped["ok"]; envelope {
+			if _, has := wrapped["data"]; has {
+				return fmt.Errorf("%w — this looks like a wrapped response; "+
+					"pass the document itself, not {ok, data}", err)
+			}
+		}
+	}
+	if !strings.HasPrefix(text, "{") && !strings.HasPrefix(text, "[") {
+		return fmt.Errorf("%w — the producer printed this, which is not JSON:\n%s",
+			err, first(text, 200))
+	}
+	return fmt.Errorf("%w — the producer printed:\n%s", err, first(text, 200))
+}
+
+func first(text string, n int) string {
+	if len(text) <= n {
+		return text
+	}
+	return text[:n] + "…"
 }
 
 func pipe(r io.Reader, opts options) int {
@@ -135,10 +167,18 @@ func drive(producer []string, opts options) int {
 func produce(producer []string, want string, through bango.Transport) (bango.Panel, error) {
 	argv := through.Argv(producer[0], producer[1:])
 	cmd := exec.Command(argv[0], argv[1:]...)
-	cmd.Stderr = os.Stderr
+	var complaint strings.Builder
+	cmd.Stderr = &complaint
 	out, err := cmd.Output()
 	if err != nil {
-		return bango.Panel{}, err
+		said := strings.TrimSpace(complaint.String())
+		if said == "" {
+			said = strings.TrimSpace(string(out))
+		}
+		if said == "" {
+			said = err.Error()
+		}
+		return bango.Panel{}, fmt.Errorf("%s said:\n%s", strings.Join(producer, " "), first(said, 300))
 	}
 	panels, err := read(strings.NewReader(string(out)), want)
 	if err != nil {
@@ -148,6 +188,21 @@ func produce(producer []string, want string, through bango.Transport) (bango.Pan
 		return bango.Panel{}, errors.New("the producer printed no panel")
 	}
 	return panels[len(panels)-1], nil
+}
+
+func terminal() (*os.File, bool) {
+	piped := func(f *os.File) bool {
+		info, err := f.Stat()
+		return err != nil || info.Mode()&os.ModeCharDevice == 0
+	}
+	if !piped(os.Stdin) && !piped(os.Stdout) {
+		return nil, false
+	}
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return nil, false
+	}
+	return tty, true
 }
 
 func run(panel bango.Panel, opts options, producer []string) int {
@@ -161,9 +216,20 @@ func run(panel bango.Panel, opts options, producer []string) int {
 		return exitOK
 	}
 	model := newModel(panel, opts, producer)
-	program := tea.NewProgram(model, tea.WithAltScreen())
+	settings := []tea.ProgramOption{tea.WithAltScreen()}
+	if tty, borrowed := terminal(); borrowed {
+		defer tty.Close()
+		settings = append(settings, tea.WithInput(tty), tea.WithOutput(tty))
+	}
+	program := tea.NewProgram(model, settings...)
 	final, err := program.Run()
 	if err != nil {
+		if strings.Contains(err.Error(), "could not open a new TTY") ||
+			strings.Contains(err.Error(), "device not configured") {
+			return fail(errors.New(
+				"there is no terminal to draw on — pipe a panel to bango from a terminal, " +
+					"or use --print to render once"))
+		}
 		return fail(err)
 	}
 	done := final.(*model2)
