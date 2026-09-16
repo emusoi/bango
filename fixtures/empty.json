@@ -1,0 +1,10 @@
+{
+  "bango": 1,
+  "id": "confirm",
+  "title": "loco · working tree",
+  "subtitle": "6/6 read · 0 open",
+  "empty": "nothing waiting on you — <leader>ac comments on the line under the cursor",
+  "hints": ["q quit"],
+  "sections": [{"id": "waiting", "label": "to confirm", "rows": []}],
+  "actions": {}
+}

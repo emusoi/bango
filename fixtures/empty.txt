@@ -1,0 +1,6 @@
+loco · working tree
+6/6 read · 0 open
+
+nothing waiting on you — <leader>ac comments on the line under the curs…
+
+q quit

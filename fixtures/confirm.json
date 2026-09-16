@@ -1,0 +1,38 @@
+{
+  "bango": 1,
+  "id": "confirm",
+  "title": "loco · #3386 Retry the workflow login bypass",
+  "subtitle": "4/9 read · 3 open · 2 to confirm",
+  "hints": ["⏎ open", "y confirm", "n send back", "? all"],
+  "sections": [
+    { "id": "waiting", "label": "to confirm", "rows": [
+      { "id": "t7", "mark": "waiting", "note": "claude",
+        "fields": [
+          {"name": "where", "value": "src/auth/token.ts:42", "kind": "path"},
+          {"name": "type", "value": "issue"},
+          {"name": "what", "value": "off-by-one on expiry"},
+          {"name": "age", "value": "18m", "kind": "time"}],
+        "facts": ["claimed   used <= ; added a test for exp == now",
+                  "evidence  3 lines changed in this file since it was filed"],
+        "preview": ["-   if (exp < now) {", "+   if (exp <= now) {"],
+        "actions": ["open", "confirm", "send_back"] },
+      { "id": "t12", "mark": "waiting", "note": "codex",
+        "fields": [
+          {"name": "where", "value": "web-client/lib/session/index.ts:88", "kind": "path"},
+          {"name": "type", "value": "issue"},
+          {"name": "what", "value": "swallowed error"},
+          {"name": "age", "value": "2h", "kind": "time"}],
+        "actions": ["open", "confirm", "send_back"] }]},
+    { "id": "open", "label": "still open", "rows": [
+      { "id": "t19", "mark": "", "note": "joneskim",
+        "fields": [
+          {"name": "where", "value": "types/graphql/utils.ts:115", "kind": "path"},
+          {"name": "type", "value": "suggestion"},
+          {"name": "what", "value": "collapse the retry loop"},
+          {"name": "age", "value": "1d", "kind": "time"}],
+        "actions": ["open"] }]}],
+  "actions": {
+    "open":      {"key": "⏎", "label": "open", "verb": "loco", "args": ["show", "{row}"]},
+    "confirm":   {"key": "y", "label": "confirm", "verb": "loco", "args": ["resolve", "{row}"], "help": "a person confirms a fix an agent claims"},
+    "send_back": {"key": "n", "label": "send back", "verb": "loco", "args": ["reopen", "{row}", "-m", "{input}"], "input": "why is it not fixed?"}}
+}

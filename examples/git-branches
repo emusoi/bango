@@ -1,0 +1,18 @@
+#!/bin/sh
+git for-each-ref --sort=-committerdate refs/heads/ \
+  --format='%(refname:short)%09%(committerdate:relative)%09%(subject)' |
+jq -Rs '{
+  bango: 1, id: "branches", title: "branches",
+  hints: ["⏎ checkout", "dd delete", "/ filter"],
+  sections: [{ id: "all", label: "recent first",
+    rows: (split("\n") | map(select(length > 0)) | map(split("\t") | {
+      id: .[0],
+      fields: [
+        {name:"branch", value:.[0], kind:"ref"},
+        {name:"age",    value:.[1], kind:"time"},
+        {name:"subject",value:.[2]}],
+      actions: ["checkout","delete"]})) }],
+  actions: {
+    checkout: {key:"⏎", label:"checkout", verb:"git", args:["switch","{row}"]},
+    delete:   {key:"dd", label:"delete",  verb:"git", args:["branch","-d","{row}"],
+               confirm:"delete this branch?"}}}'

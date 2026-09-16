@@ -1,0 +1,11 @@
+every mark
+
+   none
+ > here
+ o new
+ % working
+ ! waiting
+ x done
+ * dirty
+ X blocked
+ ~ detached

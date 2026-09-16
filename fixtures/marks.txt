@@ -1,0 +1,11 @@
+every mark
+
+   none
+ ▸ here
+ ○ new
+ ◐ working
+ ⏎ waiting
+ ✓ done
+ ● dirty
+ ⨯ blocked
+ ⚠ detached

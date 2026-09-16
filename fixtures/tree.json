@@ -1,0 +1,24 @@
+{
+  "bango": 1,
+  "id": "files",
+  "title": "changed files",
+  "subtitle": "2/6 read · +274 −15",
+  "sections": [
+    { "id": "all", "label": "", "rows": [
+      { "id": "server/src", "fields": [{"name": "name", "value": "server/src"}],
+        "children": [
+          { "id": "server/src/lib", "fields": [{"name": "name", "value": "lib"}],
+            "children": [
+              { "id": "server/src/lib/graphQLNodeFetch.ts", "mark": "dirty", "note": "●1",
+                "fields": [{"name": "name", "value": "graphQLNodeFetch.ts"},
+                           {"name": "diff", "value": "+17 −2"}] }]},
+          { "id": "server/src/test", "fields": [{"name": "name", "value": "test"}],
+            "children": [
+              { "id": "server/src/test/graphQLNodeFetch.test.ts", "mark": "done", "dim": true,
+                "fields": [{"name": "name", "value": "graphQLNodeFetch.test.ts"},
+                           {"name": "diff", "value": "+77 −3"}] }]}]},
+      { "id": "web-client/lib/utils/index.ts", "mark": "new",
+        "fields": [{"name": "name", "value": "web-client/lib/utils/index.ts", "kind": "path"},
+                   {"name": "diff", "value": "+17 −3"}] }]}],
+  "actions": {"open": {"key": "⏎", "label": "open", "verb": "true", "args": ["{row}"]}}
+}

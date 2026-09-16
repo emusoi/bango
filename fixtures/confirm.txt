@@ -1,0 +1,14 @@
+loco · #3386 Retry the workflow login bypass
+4/9 read · 3 open · 2 to confirm
+
+to confirm
+▸⏎ src/auth/token.ts:42   issue      off-by-one on expiry   18m claude
+    claimed   used <= ; added a test for exp == now
+    evidence  3 lines changed in this file since it was filed
+    -   if (exp < now) {
+    +   if (exp <= now) {
+ ⏎ web-clien…/index.ts:88 issue      swallowed error        2h  codex
+still open
+   types/gr…/utils.ts:115 suggestion collapse the retry lo… 1d  joneskim
+
+⏎ open · y confirm · n send back · ? all

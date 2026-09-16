@@ -1,0 +1,17 @@
+{
+  "bango": 1,
+  "id": "marks",
+  "title": "every mark",
+  "sections": [
+    { "id": "all", "label": "", "rows": [
+      {"id": "none", "mark": "", "fields": [{"name": "what", "value": "none"}]},
+      {"id": "here", "mark": "here", "fields": [{"name": "what", "value": "here"}]},
+      {"id": "new", "mark": "new", "fields": [{"name": "what", "value": "new"}]},
+      {"id": "working", "mark": "working", "fields": [{"name": "what", "value": "working"}]},
+      {"id": "waiting", "mark": "waiting", "fields": [{"name": "what", "value": "waiting"}]},
+      {"id": "done", "mark": "done", "fields": [{"name": "what", "value": "done"}]},
+      {"id": "dirty", "mark": "dirty", "fields": [{"name": "what", "value": "dirty"}]},
+      {"id": "blocked", "mark": "blocked", "fields": [{"name": "what", "value": "blocked"}]},
+      {"id": "detached", "mark": "detached", "fields": [{"name": "what", "value": "detached"}]}]}],
+  "actions": {}
+}
