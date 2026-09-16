@@ -34,9 +34,6 @@ func Validate(p *Panel) error {
 	if p.ID == "" || !idPattern.MatchString(p.ID) {
 		return Invalid{"id", "must be non-empty and free of spaces"}
 	}
-	if len(p.Sections) == 0 {
-		return Invalid{"sections", "at least one section is required"}
-	}
 
 	for name, action := range p.Actions {
 		where := "actions." + name
@@ -55,9 +52,6 @@ func Validate(p *Panel) error {
 		if action.Verb == "" && action.Panel == "" {
 			return Invalid{where, "an action needs a verb or a panel"}
 		}
-	}
-	if err := uniqueKeys(p.Actions); err != nil {
-		return err
 	}
 
 	seenSections := map[string]bool{}
@@ -79,21 +73,29 @@ func Validate(p *Panel) error {
 		}
 	}
 
-	for i, id := range p.Order {
-		if !seenSections[id] {
-			return Invalid{fmt.Sprintf("order[%d]", i), "no section called " + id}
-		}
-	}
-	return nil
+	return unambiguousKeys(p)
 }
 
-func uniqueKeys(actions map[string]Action) error {
-	seen := map[string]string{}
-	for name, action := range actions {
-		if owner, taken := seen[action.Key]; taken {
-			return Invalid{"actions." + name + ".key", "key " + action.Key + " already used by " + owner}
+func unambiguousKeys(p *Panel) error {
+	var global []string
+	for name, action := range p.Actions {
+		if action.Global {
+			global = append(global, name)
 		}
-		seen[action.Key] = name
+	}
+	for _, row := range p.Rows() {
+		seen := map[string]string{}
+		for _, name := range append(append([]string{}, row.Actions...), global...) {
+			action, ok := p.Actions[name]
+			if !ok {
+				continue
+			}
+			if owner, taken := seen[action.Key]; taken && owner != name {
+				return Invalid{"actions." + name + ".key",
+					"key " + action.Key + " is also " + owner + " on row " + row.ID}
+			}
+			seen[action.Key] = name
+		}
 	}
 	return nil
 }

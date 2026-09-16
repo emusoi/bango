@@ -25,7 +25,9 @@ know says so and exits; it never renders a guess.
 `id` identifies the screen so a renderer can remember cursor, filter and folds
 per panel. `[A-Za-z0-9._:/-]`, no spaces.
 
-`order` lists section ids. Sections not named follow in the order given.
+`order` lists section ids, as a preference. Sections not named follow in the order
+given, and an id naming a section that is not present this time is ignored — a
+producer builds its sections from the world and orders them from a fixed list.
 
 ## Section
 
@@ -99,6 +101,11 @@ alone, and never with a glyph outside the set it declares.
 `/`, `?`, `q`, `esc`, `j`, `k`, `g`, `G` and space are reserved by renderers and
 rejected at validation.
 
+A key must be unambiguous **for a row**, not across the panel: two actions may
+share a key when no single row offers both, which is how `D` can mean *forget the
+stack* on one row and *delete the worktree* on another. A global action's key
+must not collide with any row's actions.
+
 ## The two modes
 
 **select** — the default, and the only behaviour for a panel arriving on stdin,
@@ -156,11 +163,12 @@ producer's answer about the world, not about the filter.
 
 ## Validation
 
-Every failure names its path. `bango`, `id`, `sections`, section ids unique, row
+A panel may have no sections at all: that is an empty state, and `empty` is what
+it renders. Every failure names its path. `bango`, `id`, section ids unique, row
 ids unique across the panel, at least one field per row, field names unique
 within a row, known kinds and marks, `actions` naming real actions, keys unique
 and unreserved, `args` requiring a `verb`, `verb` and `panel` mutually exclusive,
-`order` naming real sections, nesting at most 8.
+nesting at most 8, and no key ambiguous on any one row.
 
 ## Exit codes
 

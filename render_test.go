@@ -47,10 +47,14 @@ func TestValidateNamesTheField(t *testing.T) {
 	cases := map[string]func(*Panel){
 		"bango":                    func(p *Panel) { p.Version = 7 },
 		"id":                       func(p *Panel) { p.ID = "has space" },
-		"sections":                 func(p *Panel) { p.Sections = nil },
 		"sections[0].rows[0].id":   func(p *Panel) { p.Sections[0].Rows[1].ID = "t7" },
 		"sections[0].rows[0].mark": func(p *Panel) { p.Sections[0].Rows[0].Mark = "sparkling" },
-		"actions.confirm.key":      func(p *Panel) { p.Sections[0].Rows[0].Actions = nil; a := p.Actions["confirm"]; a.Key = "q"; p.Actions["confirm"] = a },
+		"actions.confirm.key": func(p *Panel) {
+			p.Sections[0].Rows[0].Actions = nil
+			a := p.Actions["confirm"]
+			a.Key = "q"
+			p.Actions["confirm"] = a
+		},
 	}
 	for want, breakIt := range cases {
 		p := panelFixture()
@@ -132,5 +136,50 @@ func TestEmptyPanelSaysSo(t *testing.T) {
 func TestAsciiMarks(t *testing.T) {
 	if MarkWaiting.Glyph(true) != "!" || MarkWaiting.Glyph(false) != "⏎" {
 		t.Fatal("mark sets disagree")
+	}
+}
+
+func TestOneKeyMayMeanTwoThingsOnDifferentRows(t *testing.T) {
+	p := panelFixture()
+	p.Actions["forget"] = Action{Key: "y", Label: "forget", Verb: "true", Args: []string{"{row}"}}
+	p.Sections[0].Rows[1].Actions = []string{"forget"}
+	if err := Validate(&p); err != nil {
+		t.Fatalf("disjoint rows may share a key: %v", err)
+	}
+	p.Sections[0].Rows[1].Actions = []string{"confirm", "forget"}
+	if err := Validate(&p); err == nil {
+		t.Fatal("one row with two actions on the same key is ambiguous")
+	}
+}
+
+func TestGlobalKeysCollideWithEveryRow(t *testing.T) {
+	p := panelFixture()
+	p.Actions["refresh"] = Action{Key: "y", Label: "refresh", Verb: "true", Global: true}
+	if err := Validate(&p); err == nil {
+		t.Fatal("a global action shares a key with a row action")
+	}
+}
+
+func TestOrderMayNameASectionThatIsNotHere(t *testing.T) {
+	p := panelFixture()
+	p.Order = []string{"waiting", "archived", "open"}
+	if err := Validate(&p); err != nil {
+		t.Fatalf("order is a preference, not a claim: %v", err)
+	}
+	first := p.orderedSections()[0]
+	if first.ID != "waiting" {
+		t.Fatalf("ordering broke: %s", first.ID)
+	}
+}
+
+func TestAPanelWithNoSectionsIsAnEmptyState(t *testing.T) {
+	p := Panel{Version: Version, ID: "dashboard", Title: "worktrees",
+		Empty: "no worktrees yet — `mia new <branch>`"}
+	if err := Validate(&p); err != nil {
+		t.Fatalf("a panel may have nothing in it: %v", err)
+	}
+	out := strings.Join(Render(p, Style{Width: 72}), "\n")
+	if !strings.Contains(out, "no worktrees yet") {
+		t.Fatal("the empty message is what an empty panel is for")
 	}
 }
