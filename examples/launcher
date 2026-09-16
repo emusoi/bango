@@ -1,0 +1,24 @@
+#!/bin/sh
+self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+case "$1" in
+  branches) exec "$(dirname "$0")/git-branches" ;;
+  status)
+    git status --porcelain | jq -Rs '{
+      bango: 1, id: "status", title: "working tree",
+      empty: "nothing changed", hints: ["q back"],
+      sections: [{id: "all", label: "", rows: (split("\n") | map(select(length > 0)) | map({
+        id: .[3:],
+        mark: (if .[0:2] | test("\\?\\?") then "new" else "dirty" end),
+        fields: [{name: "file", value: .[3:], kind: "path"},
+                 {name: "state", value: .[0:2]}],
+        actions: ["diff"]}))}],
+      actions: {diff: {key: "⏎", label: "diff", verb: "git", args: ["diff", "--", "{row}"]}}}' ;;
+  *)
+    jq -n --arg self "$self" '{
+      bango: 1, id: "home", title: "this repository",
+      hints: ["⏎ open", "q quit"],
+      sections: [{id: "all", label: "", rows: [
+        {id: "branches", fields: [{name: "what", value: "branches"}], actions: ["open"]},
+        {id: "status",   fields: [{name: "what", value: "working tree"}], actions: ["open"]}]}],
+      actions: {open: {key: "⏎", label: "open", panel: "{row}", verb: $self, args: ["{row}"]}}}' ;;
+esac

@@ -103,3 +103,18 @@ framework. It describes a titled set of sections containing rows with actions,
 and refuses everything else.
 
 MIT.
+
+## Panels of panels
+
+An action whose command prints a panel pushes it; `q` pops back. `examples/launcher`
+is a repository menu in twenty-five lines of shell:
+
+```sh
+$ bango -- examples/launcher
+this repository
+   branches
+   working tree
+```
+
+That is one mechanism, not a second kind of action: run a command, and if what
+comes back is a panel, render it.

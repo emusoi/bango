@@ -182,3 +182,41 @@ func (p Panel) Find(id string) (Row, bool) {
 	}
 	return Row{}, false
 }
+
+func (p Panel) ActionNames() []string {
+	names := make([]string, 0, len(p.Actions))
+	for name := range p.Actions {
+		names = append(names, name)
+	}
+	sortStrings(names)
+	return names
+}
+
+func sortStrings(values []string) {
+	for i := 1; i < len(values); i++ {
+		for j := i; j > 0 && values[j] < values[j-1]; j-- {
+			values[j], values[j-1] = values[j-1], values[j]
+		}
+	}
+}
+
+func (a Action) RetryFor(refusal string) (Retry, bool) {
+	for _, retry := range a.Retry {
+		if retry.When == "" || contains(refusal, retry.When) {
+			return retry, true
+		}
+	}
+	return Retry{}, false
+}
+
+func contains(haystack, needle string) bool {
+	if needle == "" {
+		return true
+	}
+	for i := 0; i+len(needle) <= len(haystack); i++ {
+		if haystack[i:i+len(needle)] == needle {
+			return true
+		}
+	}
+	return false
+}

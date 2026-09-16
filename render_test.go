@@ -183,3 +183,40 @@ func TestAPanelWithNoSectionsIsAnEmptyState(t *testing.T) {
 		t.Fatal("the empty message is what an empty panel is for")
 	}
 }
+
+func TestActionNamesAreStable(t *testing.T) {
+	p := panelFixture()
+	p.Actions["zzz"] = Action{Key: "z", Label: "z", Verb: "true"}
+	p.Actions["aaa"] = Action{Key: "A", Label: "a", Verb: "true"}
+	first := p.ActionNames()
+	for i := 0; i < 20; i++ {
+		got := p.ActionNames()
+		for j := range got {
+			if got[j] != first[j] {
+				t.Fatalf("help reshuffles between renders: %v then %v", first, got)
+			}
+		}
+	}
+	if first[0] != "aaa" {
+		t.Fatalf("not sorted: %v", first)
+	}
+}
+
+func TestRetryIsOfferedForAMatchingRefusal(t *testing.T) {
+	action := Action{Verb: "git", Args: []string{"branch", "-d", "{row}"},
+		Retry: []Retry{{When: "not fully merged", Label: "delete anyway",
+			Verb: "git", Args: []string{"branch", "-D", "{row}"}}}}
+	if _, ok := action.RetryFor("error: the branch is not fully merged"); !ok {
+		t.Fatal("a refusal that names its own fix was not matched")
+	}
+	if _, ok := action.RetryFor("permission denied"); ok {
+		t.Fatal("an unrelated refusal offered a retry")
+	}
+}
+
+func TestRetryWithNoConditionAlwaysMatches(t *testing.T) {
+	action := Action{Retry: []Retry{{Label: "force", Verb: "true"}}}
+	if _, ok := action.RetryFor("anything at all"); !ok {
+		t.Fatal("an unconditional retry should match")
+	}
+}

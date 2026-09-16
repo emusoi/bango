@@ -272,7 +272,7 @@ func (s *server) act(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	choice.Row = row.TargetID()
-	if err := execute(action, &choice, s.opts.transport); err != nil {
+	if _, err := execute(action, &choice, s.opts.transport); err != nil {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return

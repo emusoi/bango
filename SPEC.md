@@ -93,7 +93,7 @@ alone, and never with a glyph outside the set it declares.
 | `input` | prompt for one line; it becomes `{input}` |
 | `choices` | offer a list; the pick becomes `{choice}` |
 | `confirm` | ask before running |
-| `panel` | open another panel instead of running a command |
+| `panel` | this action's command prints another panel; render it instead of refreshing |
 | `global` | applies to the screen, not a row |
 | `retry` | `[{when, label, verb, args}]` — offered when a refusal contains `when` |
 | `help` | one sentence, shown under `?` |
@@ -119,6 +119,16 @@ user picks, one line is printed and it exits. **Nothing is executed.**
 **drive** — `bango -- mytool panel dashboard`. The renderer runs the named
 command, renders the result, runs that panel's actions, and re-runs the producer
 after each one.
+
+If an action's own output parses as a panel, that panel is **pushed** instead:
+the screen becomes the new one and `q` or `esc` pops back to where you were.
+`panel` on the action declares that it does this, so a reader of the document
+knows without running it. That is the whole of "panels of panels" — one
+mechanism, no second kind of action.
+
+An action with `choices` offers them as a list first, and the pick becomes
+`{choice}`. An action whose command fails shows what it said, and if a `retry`
+matches that refusal it is offered on `r` — a refusal that names its own fix.
 
 > Argv is executed only when the user typed the program that produced it. There
 > is no flag to change that, because a flag to disable it is a flag someone puts
@@ -262,7 +272,7 @@ A panel may have no sections at all: that is an empty state, and `empty` is what
 it renders. Every failure names its path. `bango`, `id`, section ids unique, row
 ids unique across the panel, at least one field per row, field names unique
 within a row, known kinds and marks, `actions` naming real actions, keys unique
-and unreserved, `args` requiring a `verb`, `verb` and `panel` mutually exclusive,
+and unreserved, every action requiring a `verb`,
 nesting at most 8, and no key ambiguous on any one row.
 
 ## Exit codes

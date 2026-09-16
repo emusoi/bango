@@ -46,11 +46,8 @@ func Validate(p *Panel) error {
 		if len(action.Args) > 0 && action.Verb == "" {
 			return Invalid{where + ".verb", "args without a verb"}
 		}
-		if action.Verb != "" && action.Panel != "" {
-			return Invalid{where, "an action either runs a verb or opens a panel, not both"}
-		}
-		if action.Verb == "" && action.Panel == "" {
-			return Invalid{where, "an action needs a verb or a panel"}
+		if action.Verb == "" {
+			return Invalid{where + ".verb", "an action needs a command to run"}
 		}
 	}
 

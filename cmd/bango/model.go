@@ -16,10 +16,13 @@ const (
 	helping
 	prompting
 	confirming
+	choosing
 )
 
 type model2 struct {
 	panel    bango.Panel
+	stack    []bango.Panel
+	retry    *bango.Retry
 	opts     options
 	producer []string
 	folded   map[string]bool
@@ -28,6 +31,7 @@ type model2 struct {
 	state    mode
 	pending  string
 	typed    string
+	choiceAt int
 	notice   string
 	choice   *Choice
 	failure  error
@@ -105,10 +109,23 @@ func (m *model2) key(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case helping:
 		m.state = browsing
 		return m, nil
+	case choosing:
+		return m.choosing(key)
+	}
+
+	if m.retry != nil && key == "r" {
+		next := *m.retry
+		m.retry = nil
+		m.notice = ""
+		m.runRetry(next)
+		return m, nil
 	}
 
 	switch key {
 	case "q", "esc", "ctrl+c":
+		if key != "ctrl+c" && m.back() {
+			return m, nil
+		}
 		return m, tea.Quit
 	case "j", "down":
 		m.move(1)
@@ -131,6 +148,33 @@ func (m *model2) key(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.act(key)
 	}
 	return m, nil
+}
+
+func (m *model2) choosing(key string) (tea.Model, tea.Cmd) {
+	options := m.panel.Actions[m.pending].Choices
+	switch key {
+	case "esc", "q":
+		m.state = browsing
+		m.pending = ""
+	case "j", "down":
+		m.choiceAt = min(m.choiceAt+1, len(options)-1)
+	case "k", "up":
+		m.choiceAt = max(m.choiceAt-1, 0)
+	case "enter":
+		m.state = browsing
+		name := m.pending
+		m.pending = ""
+		m.pick(name, options[m.choiceAt])
+	}
+	return m, nil
+}
+
+func (m *model2) pick(name, chosen string) {
+	row, ok := m.selected()
+	if !ok {
+		return
+	}
+	m.run(name, &Choice{Action: name, Row: row.TargetID(), Pick: chosen})
 }
 
 func (m *model2) typing(key string, done func(string)) (tea.Model, tea.Cmd) {
@@ -181,7 +225,8 @@ func (m *model2) act(key string) (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	for name, action := range m.panel.Actions {
+	for _, name := range m.panel.ActionNames() {
+		action := m.panel.Actions[name]
 		if !matchKey(action.Key, key) {
 			continue
 		}
@@ -191,6 +236,12 @@ func (m *model2) act(key string) (tea.Model, tea.Cmd) {
 		if action.Confirm != "" {
 			m.pending = name
 			m.state = confirming
+			return m, nil
+		}
+		if len(action.Choices) > 0 {
+			m.pending = name
+			m.state = choosing
+			m.choiceAt = 0
 			return m, nil
 		}
 		if action.Input != "" {
@@ -243,35 +294,54 @@ func (m *model2) commit(name, input string) {
 	if !ok {
 		return
 	}
-	choice := &Choice{Action: name, Row: row.TargetID(), Input: input}
+	m.run(name, &Choice{Action: name, Row: row.TargetID(), Input: input})
+}
+
+func (m *model2) run(name string, choice *Choice) {
 	if len(m.producer) == 0 {
 		m.choice = choice
 		return
 	}
 	action := m.panel.Actions[name]
-	if action.Panel != "" {
-		m.notice = "panels of panels are not wired yet"
+	m.notice = ""
+	m.retry = nil
+
+	out, err := execute(action, choice, m.opts.transport)
+	if err != nil {
+		m.notice = err.Error()
+		if next, ok := action.RetryFor(err.Error()); ok {
+			m.retry = &next
+		}
 		return
 	}
-	if err := execute(action, choice, m.opts.transport); err != nil {
-		m.notice = err.Error()
-		if retry, ok := retryFor(action, err.Error()); ok {
-			m.notice = err.Error() + " — retry with " + retry.Label
-		}
+	if next, ok := asPanel(out, m.opts.want); ok {
+		m.stack = append(m.stack, m.panel)
+		m.panel = next
+		m.cursor = 0
+		return
 	}
 	m.refresh()
 }
 
-func retryFor(action bango.Action, refusal string) (bango.Retry, bool) {
-	for _, retry := range action.Retry {
-		if retry.When == "" || strings.Contains(refusal, retry.When) {
-			return retry, true
-		}
+func asPanel(out []byte, want string) (bango.Panel, bool) {
+	panels, err := read(strings.NewReader(string(out)), want)
+	if err != nil || len(panels) == 0 {
+		return bango.Panel{}, false
 	}
-	return bango.Retry{}, false
+	return panels[len(panels)-1], true
 }
 
-func execute(action bango.Action, choice *Choice, through bango.Transport) error {
+func (m *model2) back() bool {
+	if len(m.stack) == 0 {
+		return false
+	}
+	m.panel = m.stack[len(m.stack)-1]
+	m.stack = m.stack[:len(m.stack)-1]
+	m.cursor = 0
+	return true
+}
+
+func execute(action bango.Action, choice *Choice, through bango.Transport) ([]byte, error) {
 	args := make([]string, 0, len(action.Args))
 	for _, arg := range action.Args {
 		switch arg {
@@ -287,11 +357,17 @@ func execute(action bango.Action, choice *Choice, through bango.Transport) error
 	}
 	argv := through.Argv(action.Verb, args)
 	command := exec.Command(argv[0], argv[1:]...)
-	out, err := command.CombinedOutput()
+	var complaint strings.Builder
+	command.Stderr = &complaint
+	out, err := command.Output()
 	if err != nil {
-		return &refusal{err: err, text: strings.TrimSpace(string(out))}
+		text := strings.TrimSpace(complaint.String())
+		if text == "" {
+			text = strings.TrimSpace(string(out))
+		}
+		return nil, &refusal{err: err, text: text}
 	}
-	return nil
+	return out, nil
 }
 
 type refusal struct {
@@ -304,6 +380,20 @@ func (r *refusal) Error() string {
 		return r.text
 	}
 	return r.err.Error()
+}
+
+func (m *model2) runRetry(retry bango.Retry) {
+	row, ok := m.selected()
+	if !ok {
+		return
+	}
+	action := bango.Action{Verb: retry.Verb, Args: retry.Args}
+	choice := &Choice{Action: retry.Label, Row: row.TargetID()}
+	if _, err := execute(action, choice, m.opts.transport); err != nil {
+		m.notice = err.Error()
+		return
+	}
+	m.refresh()
 }
 
 func (m *model2) refresh() {
@@ -347,27 +437,41 @@ func (m *model2) View() string {
 		lines = append(lines, "", m.panel.Actions[m.pending].Input+" "+m.typed)
 	case confirming:
 		lines = append(lines, "", m.panel.Actions[m.pending].Confirm+"  y/n")
+	case choosing:
+		lines = append(lines, "")
+		for i, option := range m.panel.Actions[m.pending].Choices {
+			mark := "  "
+			if i == m.choiceAt {
+				mark = bango.MarkHere.Glyph(m.opts.ascii) + " "
+			}
+			lines = append(lines, mark+option)
+		}
 	case helping:
 		lines = append(lines, "")
 		lines = append(lines, help(m.panel)...)
 	}
 	if m.notice != "" {
 		lines = append(lines, "", m.notice)
+		if m.retry != nil {
+			lines = append(lines, "r  "+m.retry.Label)
+		}
 	}
 	return strings.Join(lines, "\n")
 }
 
 func help(panel bango.Panel) []string {
 	out := []string{"actions"}
-	for name, action := range panel.Actions {
-		line := "  " + action.Key + "  " + action.Label
+	for _, name := range panel.ActionNames() {
+		action := panel.Actions[name]
+		label := action.Label
+		if label == "" {
+			label = name
+		}
+		line := "  " + action.Key + "  " + label
 		if action.Help != "" {
 			line += "  — " + action.Help
 		}
-		if action.Label == "" {
-			line = "  " + action.Key + "  " + name
-		}
 		out = append(out, line)
 	}
-	return append(out, "  /  filter", "  q  quit")
+	return append(out, "", "  /  filter", "  ?  this list", "  q  back, then quit")
 }
