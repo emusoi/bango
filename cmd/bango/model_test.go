@@ -153,3 +153,38 @@ func TestAWatchedPanelKeepsBeating(t *testing.T) {
 		t.Fatal("a beat must schedule the next one and re-run the producer")
 	}
 }
+
+func actionPanel() bango.Panel {
+	return bango.Panel{Version: 1, ID: "p", Title: "t",
+		Actions: map[string]bango.Action{
+			"logs": {Key: "l", Label: "logs", Verb: "docker", Args: []string{"logs", "--tail", "50", "{row}"}},
+		},
+		Sections: []bango.Section{{ID: "s", Rows: []bango.Row{
+			{ID: "web server", Actions: []string{"logs"}, Fields: []bango.Field{{Name: "n", Value: "web server"}}},
+		}}}}
+}
+
+func TestADryRunResolvesTheArgvAndRunsNothing(t *testing.T) {
+	m := newModel(actionPanel(), options{dryRun: true}, []string{"true"})
+	typeIn(m, "l")
+	if !strings.HasPrefix(m.notice, "would run: ") {
+		t.Fatalf("notice = %q", m.notice)
+	}
+	if !strings.Contains(m.notice, "docker logs --tail 50") {
+		t.Errorf("the whole command must be shown: %q", m.notice)
+	}
+	if !strings.Contains(m.notice, "'web server'") {
+		t.Errorf("{row} must be resolved, and shown as one argument: %q", m.notice)
+	}
+	if m.choice != nil {
+		t.Error("a dry run is not a choice")
+	}
+}
+
+func TestADryRunShowsTheTransportItWouldRunThrough(t *testing.T) {
+	m := newModel(actionPanel(), options{dryRun: true, transport: bango.ViaSSH("fedora")}, []string{"true"})
+	typeIn(m, "l")
+	if !strings.Contains(m.notice, "ssh") || !strings.Contains(m.notice, "fedora") {
+		t.Errorf("the prefix is half of what makes an action wrong: %q", m.notice)
+	}
+}

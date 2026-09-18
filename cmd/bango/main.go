@@ -42,6 +42,7 @@ func main() {
 	watch := flag.Int("watch", 0, "re-run the producer every N seconds")
 	via := flag.String("via", "", "run the producer and its actions through this command")
 	viaSSH := flag.String("via-ssh", "", "run the producer and its actions on this host over ssh")
+	dryRun := flag.Bool("dry-run", false, "show what an action would run, and run nothing")
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
 
@@ -62,7 +63,7 @@ func main() {
 		}
 	}
 	opts := options{ascii: *ascii, width: *width, height: *height, want: *want,
-		asJSON: *asJSON, print: *print, plain: *plain}
+		asJSON: *asJSON, print: *print, plain: *plain, dryRun: *dryRun}
 	switch {
 	case *viaSSH != "" && *via != "":
 		fmt.Fprintln(os.Stderr, "bango: --via and --via-ssh are two answers to one question")
@@ -77,6 +78,16 @@ func main() {
 		os.Exit(exitInvalid)
 	}
 
+	if opts.dryRun && *addr != "" {
+		fmt.Fprintln(os.Stderr, "bango: --dry-run shows what this terminal would run; "+
+			"a served panel has --read-only")
+		os.Exit(exitInvalid)
+	}
+	if opts.dryRun && len(producer) == 0 {
+		fmt.Fprintln(os.Stderr, "bango: --dry-run needs a producer whose actions it can resolve: "+
+			"bango --dry-run -- CMD (a panel on stdin runs nothing anyway)")
+		os.Exit(exitInvalid)
+	}
 	opts.watch = *watch
 	if opts.watch > 0 && len(producer) == 0 {
 		fmt.Fprintln(os.Stderr, "bango: --watch needs a producer to re-run: bango --watch 5 -- CMD")
@@ -117,6 +128,7 @@ type options struct {
 	asJSON    bool
 	print     bool
 	plain     bool
+	dryRun    bool
 	transport bango.Transport
 	watch     int
 }

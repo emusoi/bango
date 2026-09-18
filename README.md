@@ -96,6 +96,18 @@ dash
 
 `--json` reports the same list as data. `check` takes files as well as stdin.
 
+`--dry-run` answers the other half. A document that validates can still run the
+wrong thing, and `{row}`, `{input}`, `{choice}` and a `--via` prefix are all
+invisible until they misfire:
+
+```
+$ bango --dry-run --via-ssh fedora -- mytool panel dash
+would run: ssh -o ControlMaster=auto -o ControlPersist=60s fedora 'docker logs --tail 50 web-server'
+```
+
+Press the key, see the argv, nothing executes. The quoting is the real quoting,
+so an argument that was going to split in two says so.
+
 `bango schema` prints the JSON Schema the document is held to, so a producer in
 a language with no bango library still gets validation and completion while it
 is being written. The schema is checked against this renderer's own vocabulary,

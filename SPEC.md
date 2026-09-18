@@ -145,6 +145,11 @@ matches that refusal it is offered on `r` — a refusal that names its own fix.
 > is no flag to change that, because a flag to disable it is a flag someone puts
 > in a script.
 
+`--dry-run` goes the other way and executes less: an action resolves its argv,
+transport prefix and all, and the renderer shows it instead of running it. It
+needs a producer, because a panel on stdin runs nothing to begin with, and it is
+refused alongside `--serve`, which has `--read-only` for the same question.
+
 `{row}`, `{input}` and `{choice}` are substituted as whole argv elements. There
 is no shell in that path.
 

@@ -123,6 +123,10 @@ func (m *model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 type complaint string
 
+func wouldRun(action bango.Action, choice *Choice, through bango.Transport) string {
+	return "would run: " + bango.ShellJoin(argvFor(action, choice, through))
+}
+
 func (m *model) key(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	switch m.state {
@@ -349,6 +353,10 @@ func (m *model) run(name string, choice *Choice) {
 	m.notice = ""
 	m.retry = nil
 
+	if m.opts.dryRun {
+		m.notice = wouldRun(action, choice, m.opts.transport)
+		return
+	}
 	out, err := execute(action, choice, m.opts.transport)
 	if err != nil {
 		m.notice = err.Error()
@@ -388,7 +396,7 @@ func (m *model) back() bool {
 	return true
 }
 
-func execute(action bango.Action, choice *Choice, through bango.Transport) ([]byte, error) {
+func argvFor(action bango.Action, choice *Choice, through bango.Transport) []string {
 	args := make([]string, 0, len(action.Args))
 	for _, arg := range action.Args {
 		switch arg {
@@ -402,7 +410,11 @@ func execute(action bango.Action, choice *Choice, through bango.Transport) ([]by
 			args = append(args, arg)
 		}
 	}
-	argv := through.Argv(action.Verb, args)
+	return through.Argv(action.Verb, args)
+}
+
+func execute(action bango.Action, choice *Choice, through bango.Transport) ([]byte, error) {
+	argv := argvFor(action, choice, through)
 	command := exec.Command(argv[0], argv[1:]...)
 	var complaint strings.Builder
 	command.Stderr = &complaint
@@ -436,6 +448,10 @@ func (m *model) runRetry(retry bango.Retry) {
 	}
 	action := bango.Action{Verb: retry.Verb, Args: retry.Args}
 	choice := &Choice{Action: retry.Label, Row: row.TargetID()}
+	if m.opts.dryRun {
+		m.notice = wouldRun(action, choice, m.opts.transport)
+		return
+	}
 	out, err := execute(action, choice, m.opts.transport)
 	if err != nil {
 		m.notice = err.Error()
