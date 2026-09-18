@@ -71,6 +71,36 @@ nothing, so it pipes into `bango`, into a file, or over ssh like any other panel
 It is the shallow end. A panel with several actions, confirmations, retries or
 marks is a producer, and a producer is usually a dozen lines of shell.
 
+## Writing a producer
+
+```sh
+bango schema > panel.schema.json    # the document, as JSON Schema
+mytool panel dash | bango check     # every fault at once, exit 2 if any
+bango --version
+```
+
+The renderer refuses a panel on the first thing wrong with it, which is right
+for a renderer and wrong for whoever is writing the producer. `bango check`
+names them all, by path, and exits 2 — so it belongs in the producer's own
+tests, not just in your terminal:
+
+```
+$ mytool panel dash | bango check
+dash
+  actions.drop.verb                  args without a verb
+  sections[0].rows[0].mark           unknown mark glowing
+  sections[0].rows[1].id             duplicate row id one
+  rows.one.target                    no row called nowhere
+4 problems
+```
+
+`--json` reports the same list as data. `check` takes files as well as stdin.
+
+`bango schema` prints the JSON Schema the document is held to, so a producer in
+a language with no bango library still gets validation and completion while it
+is being written. The schema is checked against this renderer's own vocabulary,
+so the two cannot drift apart.
+
 ## The two modes
 
 **select** is the default and the only behaviour for anything arriving on stdin.

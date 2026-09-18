@@ -42,11 +42,24 @@ func main() {
 	watch := flag.Int("watch", 0, "re-run the producer every N seconds")
 	via := flag.String("via", "", "run the producer and its actions through this command")
 	viaSSH := flag.String("via-ssh", "", "run the producer and its actions on this host over ssh")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
 
+	if *showVersion {
+		fmt.Println(said())
+		os.Exit(exitOK)
+	}
+
 	producer := flag.Args()
-	if len(producer) > 0 && producer[0] == "table" {
-		os.Exit(table(producer[1:]))
+	if len(producer) > 0 {
+		switch producer[0] {
+		case "table":
+			os.Exit(table(producer[1:]))
+		case "check":
+			os.Exit(check(producer[1:]))
+		case "schema":
+			os.Exit(schema(producer[1:]))
+		}
 	}
 	opts := options{ascii: *ascii, width: *width, height: *height, want: *want,
 		asJSON: *asJSON, print: *print, plain: *plain}

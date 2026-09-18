@@ -3,6 +3,7 @@ package bango
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -15,6 +16,15 @@ var reservedKeys = map[string]bool{
 	"j": true, "k": true, "g": true, "G": true, " ": true,
 }
 
+func ReservedKeys() []string {
+	out := make([]string, 0, len(reservedKeys))
+	for key := range reservedKeys {
+		out = append(out, key)
+	}
+	slices.Sort(out)
+	return out
+}
+
 type Invalid struct {
 	Path   string
 	Reason string
@@ -25,73 +35,87 @@ func (e Invalid) Error() string {
 }
 
 func Validate(p *Panel) error {
+	if found := Problems(p); len(found) > 0 {
+		return found[0]
+	}
+	return nil
+}
+
+func Problems(p *Panel) []Invalid {
 	if p.Version == 0 {
-		return Invalid{"bango", "no schema version — is this a bango document?"}
+		return []Invalid{{"bango", "no schema version — is this a bango document?"}}
 	}
 	if p.Version != Version {
-		return Invalid{"bango", fmt.Sprintf("version %d, this renderer speaks %d", p.Version, Version)}
-	}
-	if p.ID == "" || !idPattern.MatchString(p.ID) {
-		return Invalid{"id", "must be non-empty and free of spaces"}
+		return []Invalid{{"bango", fmt.Sprintf("version %d, this renderer speaks %d", p.Version, Version)}}
 	}
 
-	for name, action := range p.Actions {
-		where := "actions." + name
-		if action.Key == "" {
-			return Invalid{where + ".key", "an action needs a key"}
-		}
-		if reservedKeys[action.Key] {
-			return Invalid{where + ".key", "key " + action.Key + " is reserved by the renderer"}
-		}
-		if len(action.Args) > 0 && action.Verb == "" {
-			return Invalid{where + ".verb", "args without a verb"}
-		}
-		if action.Verb == "" {
-			return Invalid{where + ".verb", "an action needs a command to run"}
-		}
-		for i, retry := range action.Retry {
-			at := fmt.Sprintf("%s.retry[%d]", where, i)
-			if retry.Verb == "" {
-				return Invalid{at + ".verb", "a retry needs a command to run"}
-			}
-			if retry.Label == "" {
-				return Invalid{at + ".label", "a retry is offered on r and needs a label to offer"}
-			}
-		}
+	var found []Invalid
+	if p.ID == "" || !idPattern.MatchString(p.ID) {
+		found = append(found, Invalid{"id", "must be non-empty and free of spaces"})
 	}
+	found = append(found, actionProblems(p)...)
 
 	seenSections := map[string]bool{}
 	seenRows := map[string]bool{}
 	for i := range p.Sections {
 		section := &p.Sections[i]
 		where := fmt.Sprintf("sections[%d]", i)
-		if section.ID == "" || !idPattern.MatchString(section.ID) {
-			return Invalid{where + ".id", "must be non-empty and free of spaces"}
-		}
-		if seenSections[section.ID] {
-			return Invalid{where + ".id", "duplicate section id " + section.ID}
+		switch {
+		case section.ID == "" || !idPattern.MatchString(section.ID):
+			found = append(found, Invalid{where + ".id", "must be non-empty and free of spaces"})
+		case seenSections[section.ID]:
+			found = append(found, Invalid{where + ".id", "duplicate section id " + section.ID})
 		}
 		seenSections[section.ID] = true
 		for j := range section.Rows {
-			if err := validateRow(&section.Rows[j], fmt.Sprintf("%s.rows[%d]", where, j), p, seenRows, 1); err != nil {
-				return err
+			found = append(found, rowProblems(&section.Rows[j],
+				fmt.Sprintf("%s.rows[%d]", where, j), p, seenRows, 1)...)
+		}
+	}
+
+	found = append(found, targetProblems(p)...)
+	return append(found, keyProblems(p)...)
+}
+
+func actionProblems(p *Panel) []Invalid {
+	var found []Invalid
+	for _, name := range p.ActionNames() {
+		action := p.Actions[name]
+		where := "actions." + name
+		switch {
+		case action.Key == "":
+			found = append(found, Invalid{where + ".key", "an action needs a key"})
+		case reservedKeys[action.Key]:
+			found = append(found, Invalid{where + ".key", "key " + action.Key + " is reserved by the renderer"})
+		}
+		if action.Verb == "" {
+			if len(action.Args) > 0 {
+				found = append(found, Invalid{where + ".verb", "args without a verb"})
+			} else {
+				found = append(found, Invalid{where + ".verb", "an action needs a command to run"})
+			}
+		}
+		for i, retry := range action.Retry {
+			at := fmt.Sprintf("%s.retry[%d]", where, i)
+			if retry.Verb == "" {
+				found = append(found, Invalid{at + ".verb", "a retry needs a command to run"})
+			}
+			if retry.Label == "" {
+				found = append(found, Invalid{at + ".label", "a retry is offered on r and needs a label to offer"})
 			}
 		}
 	}
-
-	if err := ValidateTargets(p); err != nil {
-		return err
-	}
-	return unambiguousKeys(p)
+	return found
 }
 
-func unambiguousKeys(p *Panel) error {
+func keyProblems(p *Panel) []Invalid {
 	var global []string
-	for name, action := range p.Actions {
-		if action.Global {
+	for _, name := range p.ActionNames() {
+		if p.Actions[name].Global {
 			global = append(global, name)
 		}
 	}
+	var found []Invalid
 	for _, row := range p.Rows() {
 		seen := map[string]string{}
 		for _, name := range append(append([]string{}, row.Actions...), global...) {
@@ -100,71 +124,79 @@ func unambiguousKeys(p *Panel) error {
 				continue
 			}
 			if owner, taken := seen[action.Key]; taken && owner != name {
-				return Invalid{"actions." + name + ".key",
-					"key " + action.Key + " is also " + owner + " on row " + row.ID}
+				found = append(found, Invalid{"actions." + name + ".key",
+					"key " + action.Key + " is also " + owner + " on row " + row.ID})
 			}
 			seen[action.Key] = name
 		}
 	}
-	return nil
+	return found
 }
 
-func validateRow(row *Row, where string, p *Panel, seen map[string]bool, depth int) error {
+func rowProblems(row *Row, where string, p *Panel, seen map[string]bool, depth int) []Invalid {
 	if depth > maxDepth {
-		return Invalid{where, fmt.Sprintf("nested deeper than %d", maxDepth)}
+		return []Invalid{{where, fmt.Sprintf("nested deeper than %d", maxDepth)}}
 	}
-	if row.ID == "" {
-		return Invalid{where + ".id", "a row needs an id"}
-	}
-	if seen[row.ID] {
-		return Invalid{where + ".id", "duplicate row id " + row.ID}
+	var found []Invalid
+	switch {
+	case row.ID == "":
+		found = append(found, Invalid{where + ".id", "a row needs an id"})
+	case seen[row.ID]:
+		found = append(found, Invalid{where + ".id", "duplicate row id " + row.ID})
 	}
 	seen[row.ID] = true
 	if !row.Mark.Known() {
-		return Invalid{where + ".mark", "unknown mark " + string(row.Mark)}
+		found = append(found, Invalid{where + ".mark", "unknown mark " + string(row.Mark)})
 	}
 	if len(row.Fields) == 0 {
-		return Invalid{where + ".fields", "a row needs at least one field"}
+		found = append(found, Invalid{where + ".fields", "a row needs at least one field"})
 	}
 	names := map[string]bool{}
 	for i, field := range row.Fields {
 		at := fmt.Sprintf("%s.fields[%d]", where, i)
-		if field.Name == "" {
-			return Invalid{at + ".name", "a field needs a name"}
-		}
-		if names[field.Name] {
-			return Invalid{at + ".name", "duplicate field " + field.Name}
+		switch {
+		case field.Name == "":
+			found = append(found, Invalid{at + ".name", "a field needs a name"})
+		case names[field.Name]:
+			found = append(found, Invalid{at + ".name", "duplicate field " + field.Name})
 		}
 		names[field.Name] = true
 		if !field.Kind.Known() {
-			return Invalid{at + ".kind", "unknown kind " + string(field.Kind)}
+			found = append(found, Invalid{at + ".kind", "unknown kind " + string(field.Kind)})
 		}
 		if strings.ContainsAny(field.Value, "\n\r\t") {
-			return Invalid{at + ".value", "a field value is one line"}
+			found = append(found, Invalid{at + ".value", "a field value is one line"})
 		}
 	}
 	for _, name := range row.Actions {
 		if _, ok := p.Actions[name]; !ok {
-			return Invalid{where + ".actions", "no action called " + name}
+			found = append(found, Invalid{where + ".actions", "no action called " + name})
 		}
 	}
 	for i := range row.Children {
-		if err := validateRow(&row.Children[i], fmt.Sprintf("%s.children[%d]", where, i), p, seen, depth+1); err != nil {
-			return err
-		}
+		found = append(found, rowProblems(&row.Children[i],
+			fmt.Sprintf("%s.children[%d]", where, i), p, seen, depth+1)...)
+	}
+	return found
+}
+
+func ValidateTargets(p *Panel) error {
+	if found := targetProblems(p); len(found) > 0 {
+		return found[0]
 	}
 	return nil
 }
 
-func ValidateTargets(p *Panel) error {
+func targetProblems(p *Panel) []Invalid {
 	ids := map[string]bool{}
 	for _, row := range p.Rows() {
 		ids[row.ID] = true
 	}
+	var found []Invalid
 	for _, row := range p.Rows() {
 		if row.Target != "" && !ids[row.Target] {
-			return Invalid{"rows." + row.ID + ".target", "no row called " + row.Target}
+			found = append(found, Invalid{"rows." + row.ID + ".target", "no row called " + row.Target})
 		}
 	}
-	return nil
+	return found
 }

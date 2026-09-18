@@ -326,7 +326,7 @@ nesting at most 8, and no key ambiguous on any one row.
 |---|---|
 | 0 | a choice was made; it is on stdout |
 | 1 | nothing to show, or no row matched |
-| 2 | the panel was invalid, or its version is unknown |
+| 2 | the panel was invalid, or its version is unknown; `check` found something |
 | 130 | cancelled |
 
 130 matches fzf, because people pipe both in one script.
@@ -338,6 +338,15 @@ measured as two and a combining mark as none. Truncation counts the same way and
 never cuts a value that already fits. A renderer that cannot measure cells
 renders CJK narrow and misaligns every column to its right; measuring is the
 conformance bar, and `fixtures/wide` is what checks it.
+
+## The schema
+
+`panel.schema.json` states this document in JSON Schema, and `bango schema`
+prints it. It is generated from nothing — it is written — so the renderer's
+tests hold it to the vocabulary here: the marks, the kinds, the reserved keys
+and the document version are compared against the code, and a schema that has
+drifted fails the build. Two things it cannot say are the nesting limit of 8 and
+that a key must be unambiguous per row; `bango check` says both.
 
 ## Conformance
 
