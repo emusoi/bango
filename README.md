@@ -47,6 +47,30 @@ $ ./git-branches | bango          # picks, prints the branch, runs nothing
 $ bango -- ./git-branches         # picks, and runs the checkout
 ```
 
+## Without writing a producer
+
+A tool that already prints columns does not need one. `bango table` turns
+tab-separated or JSON lines into a panel, so anything with machine-readable
+output gets a screen in one pipe:
+
+```sh
+docker ps --format '{{.Names}}\t{{.Status}}\t{{.Image}}' |
+  bango table --columns name,status,image:ref --run 'docker logs {row}' | bango
+
+kubectl get pods -A -o json | jq -c '.items[] | {pod:.metadata.name, ns:.metadata.namespace}' |
+  bango table --section ns | bango
+```
+
+`--columns` names them in order, each optionally `name:kind`. Without it,
+tab-separated input is numbered and JSON lines take their keys, sorted.
+`--key` picks the column holding each row's id, `--section` groups by a column
+and shows it as the heading rather than on every row, and `--run` is what a pick
+executes, with `{row}` standing for the id. It prints a document and renders
+nothing, so it pipes into `bango`, into a file, or over ssh like any other panel.
+
+It is the shallow end. A panel with several actions, confirmations, retries or
+marks is a producer, and a producer is usually a dozen lines of shell.
+
 ## The two modes
 
 **select** is the default and the only behaviour for anything arriving on stdin.

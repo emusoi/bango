@@ -45,6 +45,9 @@ func main() {
 	flag.Parse()
 
 	producer := flag.Args()
+	if len(producer) > 0 && producer[0] == "table" {
+		os.Exit(table(producer[1:]))
+	}
 	opts := options{ascii: *ascii, width: *width, height: *height, want: *want,
 		asJSON: *asJSON, print: *print, plain: *plain}
 	switch {

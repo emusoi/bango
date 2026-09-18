@@ -148,6 +148,19 @@ matches that refusal it is offered on `r` — a refusal that names its own fix.
 `{row}`, `{input}` and `{choice}` are substituted as whole argv elements. There
 is no shell in that path.
 
+## Tabular input
+
+`bango table` is a producer for tools that have no panel of their own. It reads
+tab-separated or JSON lines and prints a document; it renders nothing, so it
+composes with everything above. Values are cut to one line, because a field is
+one line, and a repeated id is suffixed rather than refused, because the column
+a reader wants to see is rarely unique.
+
+Every panel it builds declares one action, `pick`, so that select mode has
+something to pick with — a panel with no actions cannot be chosen from at all.
+Without `--run` that action's verb is `true`, which does nothing in drive mode
+and is never executed in select mode.
+
 ## Remote
 
 A panel is a document, so the read side needs nothing:
