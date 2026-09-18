@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -43,13 +42,18 @@ func serve(producer []string, opts options, addr string, readOnly bool) int {
 	}
 	s := &server{producer: producer, opts: opts, readOnly: readOnly, token: hex.EncodeToString(raw)}
 
+	where, err := loopbackOnly(addr)
+	if err != nil {
+		return fail(err)
+	}
+
 	panel, err := produce(producer, opts.want, opts.transport)
 	if err != nil {
 		return fail(err)
 	}
 	s.panel = panel
 
-	listener, err := net.Listen("tcp", addr)
+	listener, err := net.Listen("tcp", where)
 	if err != nil {
 		return fail(err)
 	}
@@ -73,10 +77,30 @@ func serve(producer []string, opts options, addr string, readOnly bool) int {
 	if opts.watch > 0 {
 		go s.poll(time.Duration(opts.watch) * time.Second)
 	}
-	if err := http.Serve(listener, mux); err != nil {
+	httpd := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	if err := httpd.Serve(listener); err != nil {
 		return fail(err)
 	}
 	return exitOK
+}
+
+func loopbackOnly(addr string) (string, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", fmt.Errorf("--serve wants host:port, and %q is not that", addr)
+	}
+	if host == "" {
+		return net.JoinHostPort("127.0.0.1", port), nil
+	}
+	if host == "localhost" {
+		return addr, nil
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return addr, nil
+	}
+	return "", fmt.Errorf("--serve binds loopback only, and %s is not loopback: "+
+		"a panel reachable from the network is one the network can ask for, "+
+		"and its actions run here", host)
 }
 
 func (s *server) writeToken() error {
@@ -282,12 +306,4 @@ func (s *server) act(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.current(w, r)
-}
-
-func hostOnly(addr string) string {
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil {
-		return addr
-	}
-	return strings.TrimSpace(host)
 }
