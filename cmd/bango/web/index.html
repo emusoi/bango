@@ -215,6 +215,7 @@ function listen() {
   source.onmessage = (event) => {
     const payload = JSON.parse(event.data);
     panel = payload.panel;
+    $("alert").textContent = payload.trouble || "";
     $("off").hidden = true;
     draw();
   };
@@ -235,7 +236,11 @@ document.addEventListener("keydown", (event) => {
 
 fetch("/panel?t=" + encodeURIComponent(token), { headers: { "X-Bango-Token": token } })
   .then(r => r.json())
-  .then(payload => { panel = payload.panel; readOnly = payload.readOnly; draw(); listen(); })
+  .then(payload => {
+    panel = payload.panel; readOnly = payload.readOnly;
+    $("alert").textContent = payload.trouble || "";
+    draw(); listen();
+  })
   .catch(() => { $("title").textContent = "bango: could not reach the server"; });
 </script>
 </body>

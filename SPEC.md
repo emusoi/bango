@@ -231,7 +231,9 @@ streaming that nothing here needs. If a client ever has to push continuously,
 that is when to revisit it.
 
 `--watch N` re-runs the producer every N seconds. Without it a panel changes
-only when an action changes it.
+only when an action changes it. A producer that starts failing does not silently
+freeze the page: the last good panel stays, and what the producer said arrives
+with it and clears when it recovers.
 
 ### What guards it
 

@@ -31,6 +31,7 @@ type server struct {
 
 	mu       sync.RWMutex
 	panel    bango.Panel
+	trouble  string
 	revision int
 
 	listeners sync.Map
@@ -189,17 +190,17 @@ func (s *server) page(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
-func (s *server) snapshot() (bango.Panel, int) {
+func (s *server) snapshot() (bango.Panel, string, int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.panel, s.revision
+	return s.panel, s.trouble, s.revision
 }
 
 func (s *server) current(w http.ResponseWriter, r *http.Request) {
-	panel, revision := s.snapshot()
+	panel, trouble, revision := s.snapshot()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"revision": revision, "readOnly": s.readOnly, "panel": panel,
+		"revision": revision, "readOnly": s.readOnly, "panel": panel, "trouble": trouble,
 	})
 }
 
@@ -237,8 +238,8 @@ func (s *server) events(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) send(w http.ResponseWriter, flusher http.Flusher) {
-	panel, revision := s.snapshot()
-	body, err := json.Marshal(map[string]any{"revision": revision, "panel": panel})
+	panel, trouble, revision := s.snapshot()
+	body, err := json.Marshal(map[string]any{"revision": revision, "panel": panel, "trouble": trouble})
 	if err != nil {
 		return
 	}
@@ -257,15 +258,16 @@ func (s *server) announce() {
 
 func (s *server) refresh() error {
 	panel, err := produce(s.producer, s.opts.want, s.opts.transport)
-	if err != nil {
-		return err
-	}
 	s.mu.Lock()
-	s.panel = panel
+	if err != nil {
+		s.trouble = err.Error()
+	} else {
+		s.panel, s.trouble = panel, ""
+	}
 	s.revision++
 	s.mu.Unlock()
 	s.announce()
-	return nil
+	return err
 }
 
 func (s *server) poll(every time.Duration) {
@@ -288,7 +290,7 @@ func (s *server) act(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	panel, _ := s.snapshot()
+	panel, _, _ := s.snapshot()
 	action, ok := panel.Actions[choice.Action]
 	if !ok {
 		http.Error(w, "no action called "+choice.Action, http.StatusBadRequest)

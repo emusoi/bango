@@ -118,3 +118,39 @@ func TestATerminalIsBorrowedWhenStreamsArePipes(t *testing.T) {
 		}
 	}
 }
+
+func TestAProducerThatStartsFailingIsSaidOutLoud(t *testing.T) {
+	s := testServer(t, false)
+	if err := s.refresh(); err != nil {
+		t.Fatalf("a working producer must not complain: %v", err)
+	}
+	before, trouble, _ := s.snapshot()
+	if trouble != "" {
+		t.Fatalf("trouble = %q while the producer works", trouble)
+	}
+
+	s.producer = []string{"sh", "-c", "echo the database is gone >&2; exit 1"}
+	if err := s.refresh(); err == nil {
+		t.Fatal("a broken producer must be reported to the caller")
+	}
+	after, trouble, _ := s.snapshot()
+	if !strings.Contains(trouble, "the database is gone") {
+		t.Errorf("trouble = %q, want the producer's own words", trouble)
+	}
+	if len(after.Sections) != len(before.Sections) {
+		t.Error("the last good panel must stay on screen")
+	}
+
+	body := ask(s, "GET", "/panel", "", func(r *http.Request) { r.Header.Set("X-Bango-Token", "secret") }).Body.String()
+	if !strings.Contains(body, "the database is gone") {
+		t.Errorf("the browser is never told: %s", body)
+	}
+
+	s.producer = []string{"printf", "%s", sample}
+	if err := s.refresh(); err != nil {
+		t.Fatal(err)
+	}
+	if _, trouble, _ = s.snapshot(); trouble != "" {
+		t.Errorf("a producer that recovers must clear the complaint, got %q", trouble)
+	}
+}
