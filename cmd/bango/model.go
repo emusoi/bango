@@ -32,6 +32,7 @@ type model2 struct {
 	pending  string
 	typed    string
 	choiceAt int
+	top      int
 	notice   string
 	choice   *Choice
 	failure  error
@@ -423,7 +424,12 @@ func (m *model2) refresh() {
 }
 
 func (m *model2) View() string {
-	lines := m.paint()
+	below := m.below()
+	return strings.Join(append(m.paint(len(below)), below...), "\n")
+}
+
+func (m *model2) below() []string {
+	var lines []string
 	switch m.state {
 	case filtering:
 		lines = append(lines, "", "/"+m.typed)
@@ -450,7 +456,7 @@ func (m *model2) View() string {
 			lines = append(lines, "r  "+m.retry.Label)
 		}
 	}
-	return strings.Join(lines, "\n")
+	return lines
 }
 
 func help(panel bango.Panel) []string {

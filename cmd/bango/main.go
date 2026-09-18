@@ -213,7 +213,7 @@ func run(panel bango.Panel, opts options, producer []string) int {
 		if width == 0 {
 			width = 80
 		}
-		style := bango.Style{Width: width, ASCII: opts.ascii}
+		style := bango.Style{Width: width, Height: opts.height, ASCII: opts.ascii}
 		fmt.Println(strings.Join(bango.Render(panel, style), "\n"))
 		return exitOK
 	}

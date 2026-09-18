@@ -5,6 +5,7 @@ import "strings"
 type Style struct {
 	Width  int
 	Height int
+	Offset int
 	ASCII  bool
 	Cursor string
 	Folded map[string]bool
@@ -60,31 +61,68 @@ func Render(p Panel, style Style) []string {
 		}
 	}
 
-	out := []string{clip(p.Title, style.Width)}
+	head := []string{clip(p.Title, style.Width)}
 	if p.Subtitle != "" {
-		out = append(out, clip(p.Subtitle, style.Width))
+		head = append(head, clip(p.Subtitle, style.Width))
 	}
-	out = append(out, "")
+	head = append(head, "")
+	foot := footer(p, style)
 
 	if len(rows) == 0 {
 		if p.Empty != "" {
-			out = append(out, clip(p.Empty, style.Width))
+			head = append(head, clip(p.Empty, style.Width))
 		}
-		return append(out, footer(p, style)...)
+		return append(head, foot...)
 	}
 
+	var body []string
+	at := -1
 	cols := Columns(rows, style.Width)
 	for _, line := range all {
 		if line.Header {
-			out = append(out, clip(line.Label, style.Width))
+			body = append(body, clip(line.Label, style.Width))
 			continue
 		}
-		out = append(out, clip(paint(line, cols, style), style.Width))
 		if line.Row.ID == style.Cursor {
-			out = append(out, detail(line.Row, style.Width)...)
+			at = len(body)
+		}
+		body = append(body, clip(paint(line, cols, style), style.Width))
+		if line.Row.ID == style.Cursor {
+			body = append(body, detail(line.Row, style.Width)...)
 		}
 	}
-	return append(out, footer(p, style)...)
+	body = Window(body, at, style.Height-len(head)-len(foot), style.Offset)
+	return append(append(head, body...), foot...)
+}
+
+func Scroll(top, at, height, total int) int {
+	if height <= 0 || total <= height {
+		return 0
+	}
+	if top > total-height {
+		top = total - height
+	}
+	if top < 0 {
+		top = 0
+	}
+	if at < 0 {
+		return top
+	}
+	if at < top {
+		return at
+	}
+	if at >= top+height {
+		return at - height + 1
+	}
+	return top
+}
+
+func Window[T any](lines []T, at, height, top int) []T {
+	if height <= 0 || len(lines) <= height {
+		return lines
+	}
+	top = Scroll(top, at, height, len(lines))
+	return lines[top : top+height]
 }
 
 func paint(line Line, cols []Column, style Style) string {

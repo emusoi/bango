@@ -52,9 +52,10 @@ func colours() palette {
 	}
 }
 
-func (m *model2) paint() []string {
+func (m *model2) paint(reserve int) []string {
+	m.follow(reserve)
 	if m.opts.plain {
-		return bango.Render(m.panel, m.style())
+		return bango.Render(m.panel, m.style(reserve))
 	}
 	shown := bango.Filter(m.panel, m.query)
 	all := bango.Lines(shown, m.folded)
@@ -67,40 +68,79 @@ func (m *model2) paint() []string {
 	}
 
 	paint := colours()
-	out := []string{paint.title.Render(clip(m.panel.Title, m.width))}
+	head := []string{paint.title.Render(clip(m.panel.Title, m.width))}
 	if m.panel.Subtitle != "" {
-		out = append(out, paint.subtitle.Render(clip(m.panel.Subtitle, m.width)))
+		head = append(head, paint.subtitle.Render(clip(m.panel.Subtitle, m.width)))
 	}
-	out = append(out, "")
+	head = append(head, "")
+	foot := m.paintFooter(paint)
 
 	if len(rows) == 0 {
 		if m.panel.Empty != "" {
-			out = append(out, paint.dim.Render(clip(m.panel.Empty, m.width)))
+			head = append(head, paint.dim.Render(clip(m.panel.Empty, m.width)))
 		}
-		return append(out, m.paintFooter(paint)...)
+		return append(head, foot...)
 	}
 
 	cursor := ""
 	if row, ok := m.selected(); ok {
 		cursor = row.ID
 	}
+	var body []string
+	at := -1
 	cols := bango.Columns(rows, m.width)
 	for _, line := range all {
 		if line.Header {
-			out = append(out, paint.section.Render(clip(line.Label, m.width)))
+			body = append(body, paint.section.Render(clip(line.Label, m.width)))
 			continue
 		}
-		out = append(out, m.paintRow(line, cols, cursor, paint))
+		if line.Row.ID == cursor {
+			at = len(body)
+		}
+		body = append(body, m.paintRow(line, cols, cursor, paint))
 		if line.Row.ID == cursor {
 			for _, fact := range line.Row.Facts {
-				out = append(out, paint.fact.Render(clip("    "+fact, m.width)))
+				body = append(body, paint.fact.Render(clip("    "+fact, m.width)))
 			}
 			for _, preview := range line.Row.Preview {
-				out = append(out, paint.fact.Render(clip("    "+preview, m.width)))
+				body = append(body, paint.fact.Render(clip("    "+preview, m.width)))
 			}
 		}
 	}
-	return append(out, m.paintFooter(paint)...)
+	body = bango.Window(body, at, m.body(reserve), m.top)
+	return append(append(head, body...), foot...)
+}
+
+func (m *model2) follow(reserve int) {
+	cursor := ""
+	if row, ok := m.selected(); ok {
+		cursor = row.ID
+	}
+	at, total := -1, 0
+	for _, line := range bango.Lines(bango.Filter(m.panel, m.query), m.folded) {
+		if line.Header {
+			total++
+			continue
+		}
+		if line.Row.ID == cursor {
+			at = total
+			total += len(line.Row.Facts) + len(line.Row.Preview)
+		}
+		total++
+	}
+	m.top = bango.Scroll(m.top, at, m.body(reserve), total)
+}
+
+func (m *model2) body(reserve int) int {
+	head := 2
+	if m.panel.Subtitle != "" {
+		head++
+	}
+	foot := 0
+	if len(m.panel.Hints) > 0 {
+		foot = 2
+	}
+	return m.height - head - foot - reserve
 }
 
 func (m *model2) paintRow(line bango.Line, cols []bango.Column, cursor string, paint palette) string {
@@ -177,13 +217,13 @@ func (m *model2) paintFooter(paint palette) []string {
 	return []string{"", paint.footer.Render(clip(strings.Join(m.panel.Hints, " · "), m.width))}
 }
 
-func (m *model2) style() bango.Style {
+func (m *model2) style(reserve int) bango.Style {
 	cursor := ""
 	if row, ok := m.selected(); ok {
 		cursor = row.ID
 	}
-	return bango.Style{Width: m.width, Height: m.height, ASCII: m.opts.ascii,
-		Cursor: cursor, Folded: m.folded, Query: m.query}
+	return bango.Style{Width: m.width, Height: m.height - reserve, Offset: m.top,
+		ASCII: m.opts.ascii, Cursor: cursor, Folded: m.folded, Query: m.query}
 }
 
 func clip(s string, width int) string {

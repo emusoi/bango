@@ -1,6 +1,7 @@
 package bango
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -218,5 +219,64 @@ func TestRetryWithNoConditionAlwaysMatches(t *testing.T) {
 	action := Action{Retry: []Retry{{Label: "force", Verb: "true"}}}
 	if _, ok := action.RetryFor("anything at all"); !ok {
 		t.Fatal("an unconditional retry should match")
+	}
+}
+
+func tallPanel(n int) Panel {
+	p := Panel{Version: 1, ID: "tall", Title: "tall", Hints: []string{"q quit"},
+		Sections: []Section{{ID: "s"}}}
+	for i := 0; i < n; i++ {
+		id := fmt.Sprintf("r%02d", i)
+		p.Sections[0].Rows = append(p.Sections[0].Rows,
+			Row{ID: id, Fields: []Field{{Name: "n", Value: id}}})
+	}
+	return p
+}
+
+func TestAPanelTallerThanTheWindowIsCutToIt(t *testing.T) {
+	lines := Render(tallPanel(40), Style{Width: 30, Height: 12, Cursor: "r00"})
+	if len(lines) != 12 {
+		t.Fatalf("rendered %d lines into a window of 12:\n%s", len(lines), strings.Join(lines, "\n"))
+	}
+	if lines[0] != "tall" || lines[len(lines)-1] != "q quit" {
+		t.Errorf("the title and the hints must stay pinned:\n%s", strings.Join(lines, "\n"))
+	}
+}
+
+func TestTheCursorIsAlwaysInTheWindow(t *testing.T) {
+	for _, id := range []string{"r00", "r19", "r39"} {
+		lines := Render(tallPanel(40), Style{Width: 30, Height: 12, Cursor: id})
+		if !strings.Contains(strings.Join(lines, "\n"), id) {
+			t.Errorf("cursor %s is off screen:\n%s", id, strings.Join(lines, "\n"))
+		}
+	}
+}
+
+func TestNoHeightMeansNoWindow(t *testing.T) {
+	lines := Render(tallPanel(40), Style{Width: 30, Cursor: "r00"})
+	if len(lines) < 40 {
+		t.Fatalf("without a height every row is drawn, got %d lines", len(lines))
+	}
+}
+
+func TestScrollHoldsStillUntilTheCursorLeaves(t *testing.T) {
+	const height, total = 10, 40
+	top := 0
+	for at := 0; at < height; at++ {
+		if top = Scroll(top, at, height, total); top != 0 {
+			t.Fatalf("moving to %d inside the window scrolled to %d", at, top)
+		}
+	}
+	if top = Scroll(top, height, height, total); top != 1 {
+		t.Fatalf("stepping one past the window scrolled to %d, want 1", top)
+	}
+	if top = Scroll(top, 3, height, total); top != 1 {
+		t.Fatalf("a row still inside the window scrolled to %d, want 1", top)
+	}
+	if top = Scroll(top, 0, height, total); top != 0 {
+		t.Fatalf("jumping above the window scrolled to %d, want 0", top)
+	}
+	if top = Scroll(top, 39, height, total); top != 30 {
+		t.Fatalf("the last row put the window at %d, want 30", top)
 	}
 }
