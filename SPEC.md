@@ -249,7 +249,10 @@ trusted by origin:
   nothing but its own origin.
 - `--read-only` serves a panel whose actions are refused with 403.
 - An action is refused unless the panel offers it **on that row**, so a client
-  cannot post a verb the screen never showed.
+  cannot post a verb the screen never showed, and `{choice}` must be one the
+  action listed, so it cannot post an argument the screen never showed either.
+- The address is checked before the socket is opened, so `--serve` cannot be
+  talked into a public interface.
 
 Actions run under the same rule as drive mode: the user named the producer on
 the command line, and the server only runs what that producer's panel declares.

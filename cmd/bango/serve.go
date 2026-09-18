@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -82,6 +83,13 @@ func serve(producer []string, opts options, addr string, readOnly bool) int {
 		return fail(err)
 	}
 	return exitOK
+}
+
+func offered(action bango.Action, pick string) bool {
+	if len(action.Choices) == 0 {
+		return pick == ""
+	}
+	return slices.Contains(action.Choices, pick)
 }
 
 func loopbackOnly(addr string) (string, error) {
@@ -293,6 +301,10 @@ func (s *server) act(w http.ResponseWriter, r *http.Request) {
 	}
 	if !action.Global && !allows(row, choice.Action) {
 		http.Error(w, choice.Action+" is not offered on "+choice.Row, http.StatusForbidden)
+		return
+	}
+	if !offered(action, choice.Pick) {
+		http.Error(w, choice.Action+" does not offer the choice "+choice.Pick, http.StatusForbidden)
 		return
 	}
 	choice.Row = row.TargetID()
