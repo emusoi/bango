@@ -309,3 +309,21 @@ func TestARetryIsHeldToTheSameBarAsTheActionItFollows(t *testing.T) {
 		}
 	}
 }
+
+func TestATargetMustNameARowThatIsThere(t *testing.T) {
+	p := &Panel{Version: 1, ID: "p", Title: "t", Sections: []Section{{ID: "s", Rows: []Row{
+		{ID: "a", Target: "b", Fields: []Field{{Name: "n", Value: "x"}}},
+		{ID: "b", Fields: []Field{{Name: "n", Value: "y"}}},
+	}}}}
+	if err := Validate(p); err != nil {
+		t.Fatalf("a target naming a real row must pass: %v", err)
+	}
+	p.Sections[0].Rows[0].Target = "gone"
+	err := Validate(p)
+	if err == nil {
+		t.Fatal("a target naming nothing was accepted")
+	}
+	if got := err.(Invalid).Path; got != "rows.a.target" {
+		t.Errorf("path = %q", got)
+	}
+}

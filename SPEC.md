@@ -293,7 +293,8 @@ it renders. Every failure names its path. `bango`, `id`, section ids unique, row
 ids unique across the panel, at least one field per row, field names unique
 within a row, known kinds and marks, `actions` naming real actions, keys unique
 and unreserved, every action and every one of its retries requiring a `verb`,
-every retry requiring the `label` it is offered under,
+every retry requiring the `label` it is offered under, every `target` naming a
+row that is on the panel,
 nesting at most 8, and no key ambiguous on any one row.
 
 ## Exit codes

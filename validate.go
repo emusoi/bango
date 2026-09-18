@@ -79,6 +79,9 @@ func Validate(p *Panel) error {
 		}
 	}
 
+	if err := ValidateTargets(p); err != nil {
+		return err
+	}
 	return unambiguousKeys(p)
 }
 
