@@ -15,14 +15,14 @@ type Panel struct {
 	Empty    string            `json:"empty,omitempty"`
 	Hints    []string          `json:"hints,omitempty"`
 	Order    []string          `json:"order,omitempty"`
-	Sections []Section         `json:"sections"`
+	Sections []Section         `json:"sections,omitempty"`
 	Actions  map[string]Action `json:"actions,omitempty"`
 }
 
 type Section struct {
 	ID        string `json:"id"`
 	Label     string `json:"label,omitempty"`
-	Rows      []Row  `json:"rows"`
+	Rows      []Row  `json:"rows,omitempty"`
 	Collapsed bool   `json:"collapsed,omitempty"`
 }
 

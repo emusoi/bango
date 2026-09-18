@@ -1,6 +1,7 @@
 package bango
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -343,5 +344,22 @@ func TestWidthIsCountedInCellsNotRunes(t *testing.T) {
 	}
 	if got := cells(Fit("田中さん", KindCount, 10)); got != 10 {
 		t.Errorf("a padded wide value is %d cells, want 10", got)
+	}
+}
+
+func TestAnEmptyPanelOmitsItsSectionsRatherThanNullingThem(t *testing.T) {
+	encoded, err := json.Marshal(Panel{Version: Version, ID: "empty", Title: "t"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "null") {
+		t.Errorf("a consumer that is not Go has to read this: %s", encoded)
+	}
+	var back Panel
+	if err := json.Unmarshal(encoded, &back); err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(&back); err != nil {
+		t.Errorf("it must still be a panel: %v", err)
 	}
 }
