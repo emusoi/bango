@@ -208,26 +208,28 @@ func tabulate(cols []column, rows [][]string, id, title, empty, key, section, ru
 		}
 	}
 
-	verb, args := "true", []string{}
+	panel := bango.Panel{
+		Version: bango.Version, ID: id, Title: title, Empty: empty,
+		Hints: []string{"⏎ pick", "/ filter", "q quit"},
+	}
 	if run != "" {
 		parts := strings.Fields(run)
 		if len(parts) == 0 {
 			return bango.Panel{}, errors.New("--run was given nothing to run")
 		}
-		verb, args = parts[0], parts[1:]
-	}
-
-	panel := bango.Panel{
-		Version: bango.Version, ID: id, Title: title, Empty: empty,
-		Hints:   []string{"⏎ pick", "/ filter", "q quit"},
-		Actions: map[string]bango.Action{"pick": {Key: "⏎", Label: "pick", Verb: verb, Args: args}},
+		panel.Actions = map[string]bango.Action{
+			"pick": {Key: "⏎", Label: "pick", Verb: parts[0], Args: parts[1:]},
+		}
 	}
 
 	taken := map[string]int{}
 	order := []string{}
 	buckets := map[string][]bango.Row{}
 	for _, cells := range rows {
-		row := bango.Row{ID: unique(taken, clean(cell(cells, at))), Actions: []string{"pick"}}
+		row := bango.Row{ID: unique(taken, clean(cell(cells, at)))}
+		if run != "" {
+			row.Actions = []string{"pick"}
+		}
 		for i, one := range cols {
 			if i == group {
 				continue

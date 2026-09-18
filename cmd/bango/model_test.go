@@ -188,3 +188,28 @@ func TestADryRunShowsTheTransportItWouldRunThrough(t *testing.T) {
 		t.Errorf("the prefix is half of what makes an action wrong: %q", m.notice)
 	}
 }
+
+func TestSelectModePicksARowThatOffersNothing(t *testing.T) {
+	m := newModel(twoRows(), options{}, nil)
+	typeIn(m, "j")
+	if _, cmd := m.key(tea.KeyMsg{Type: tea.KeyEnter}); cmd == nil {
+		t.Fatal("enter on a panel with no actions must still choose and quit")
+	}
+	if m.choice == nil {
+		t.Fatal("nothing was chosen")
+	}
+	if m.choice.Row != "b" {
+		t.Errorf("chose %q, want b", m.choice.Row)
+	}
+	if m.choice.Action != "" {
+		t.Errorf("there was no action to name, got %q", m.choice.Action)
+	}
+}
+
+func TestDriveModeLeavesEnterToThePanel(t *testing.T) {
+	m := newModel(twoRows(), options{}, []string{"true"})
+	m.key(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.choice != nil {
+		t.Error("drive mode runs what the panel declares, and this panel declares nothing")
+	}
+}

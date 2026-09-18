@@ -96,8 +96,13 @@ func TestAPickRunsWhatWasAskedFor(t *testing.T) {
 		t.Errorf("pick = %+v", pick)
 	}
 	plain := build(t, "web\tnginx\n", "name,image", "", "", "")
-	if plain.Actions["pick"].Verb != "true" {
-		t.Errorf("without --run a pick must still be declared, so select mode can pick: %+v", plain.Actions["pick"])
+	if len(plain.Actions) != 0 {
+		t.Errorf("without --run there is nothing to run, so nothing is declared: %+v", plain.Actions)
+	}
+	for _, row := range plain.Rows() {
+		if len(row.Actions) != 0 {
+			t.Errorf("a row cannot offer an action the panel does not have: %+v", row.Actions)
+		}
 	}
 }
 

@@ -118,6 +118,12 @@ must not collide with any row's actions.
 from a file, or from anywhere the user did not name. The renderer draws, the
 user picks, one line is printed and it exits. **Nothing is executed.**
 
+Picking belongs to the mode, not to the document: `⏎` on a row that offers no
+action chooses it anyway, and the printed choice names no action because there
+was none. So a panel of nothing but rows is a usable screen, which is what a
+tool with a list and no verbs should have to write. In drive mode `⏎` is the
+panel's to spend, and a row that declares nothing does nothing.
+
 ```json
 {"action":"send_back","row":"t7","input":"the test still fails"}
 ```
@@ -161,10 +167,9 @@ composes with everything above. Values are cut to one line, because a field is
 one line, and a repeated id is suffixed rather than refused, because the column
 a reader wants to see is rarely unique.
 
-Every panel it builds declares one action, `pick`, so that select mode has
-something to pick with — a panel with no actions cannot be chosen from at all.
-Without `--run` that action's verb is `true`, which does nothing in drive mode
-and is never executed in select mode.
+Without `--run` it declares no actions at all, because select mode can pick a
+row that offers nothing. With `--run` it declares one, `pick`, and the rows
+offer it.
 
 ## Remote
 

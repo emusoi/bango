@@ -299,6 +299,9 @@ func (m *model) act(key string) (tea.Model, tea.Cmd) {
 		}
 		return m.commitCmd(name, "")
 	}
+	if len(m.producer) == 0 && matchKey("⏎", key) {
+		return m.commitCmd("", "")
+	}
 	return m, nil
 }
 
