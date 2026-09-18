@@ -103,9 +103,9 @@ func (m *model2) key(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	switch m.state {
 	case filtering:
-		return m.typing(key, func(value string) { m.query = value; m.cursor = 0 })
+		return m.typing(msg, func(value string) { m.query = value; m.cursor = 0 })
 	case prompting:
-		return m.typing(key, func(value string) { m.commit(m.pending, value) })
+		return m.typing(msg, func(value string) { m.commit(m.pending, value) })
 	case confirming:
 		if key == "y" {
 			m.state = browsing
@@ -186,33 +186,43 @@ func (m *model2) pick(name, chosen string) {
 	m.run(name, &Choice{Action: name, Row: row.TargetID(), Pick: chosen})
 }
 
-func (m *model2) typing(key string, done func(string)) (tea.Model, tea.Cmd) {
-	switch key {
+func (m *model2) typing(msg tea.KeyMsg, done func(string)) (tea.Model, tea.Cmd) {
+	switch msg.String() {
 	case "esc":
 		m.state = browsing
 		m.typed = ""
+		return m, nil
 	case "enter":
 		m.state = browsing
 		value := m.typed
 		m.typed = ""
 		done(value)
+		return m, nil
 	case "backspace":
 		if m.typed != "" {
 			runes := []rune(m.typed)
 			m.typed = string(runes[:len(runes)-1])
-			if m.state == filtering {
-				m.query = m.typed
-			}
 		}
 	default:
-		if len(key) == 1 {
-			m.typed += key
-			if m.state == filtering {
-				m.query = m.typed
-			}
-		}
+		m.typed += typed(msg)
+	}
+	if m.state == filtering {
+		m.query = m.typed
 	}
 	return m, nil
+}
+
+func typed(msg tea.KeyMsg) string {
+	if msg.Alt {
+		return ""
+	}
+	switch msg.Type {
+	case tea.KeyRunes:
+		return string(msg.Runes)
+	case tea.KeySpace:
+		return " "
+	}
+	return ""
 }
 
 func (m *model2) move(delta int) {

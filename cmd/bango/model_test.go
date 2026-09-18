@@ -119,3 +119,19 @@ func TestARedrawKeepsTheCursorOnItsRow(t *testing.T) {
 		t.Errorf("a panel with no rows left the cursor at %d", m.cursor)
 	}
 }
+
+func TestTheFilterTakesLettersThatAreNotAscii(t *testing.T) {
+	m := newModel(twoRows(), options{}, nil)
+	typeIn(m, "/")
+	typeIn(m, "café東")
+	if m.typed != "café東" {
+		t.Errorf("typed = %q, want café東", m.typed)
+	}
+	if m.query != m.typed {
+		t.Errorf("query = %q, typed = %q", m.query, m.typed)
+	}
+	m.key(tea.KeyMsg{Type: tea.KeyBackspace})
+	if m.typed != "café" {
+		t.Errorf("backspace left %q, want café", m.typed)
+	}
+}
