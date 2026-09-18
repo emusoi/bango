@@ -357,6 +357,10 @@ func (m *model2) run(name string, choice *Choice) {
 		}
 		return
 	}
+	m.landed(out)
+}
+
+func (m *model2) landed(out []byte) {
 	if next, ok := asPanel(out, m.opts.want); ok {
 		m.stack = append(m.stack, m.panel)
 		m.panel = next
@@ -432,11 +436,12 @@ func (m *model2) runRetry(retry bango.Retry) {
 	}
 	action := bango.Action{Verb: retry.Verb, Args: retry.Args}
 	choice := &Choice{Action: retry.Label, Row: row.TargetID()}
-	if _, err := execute(action, choice, m.opts.transport); err != nil {
+	out, err := execute(action, choice, m.opts.transport)
+	if err != nil {
 		m.notice = err.Error()
 		return
 	}
-	m.refresh()
+	m.landed(out)
 }
 
 func (m *model2) refresh() {
