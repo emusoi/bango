@@ -68,7 +68,8 @@ function M.pick(opts)
   local previous = vim.api.nvim_get_current_win()
   local buf, win = float(opts)
 
-  vim.fn.termopen({ "sh", "-c", M.command(opts, out) .. " 2> " .. vim.fn.shellescape(complaint) }, {
+  local argv = { "sh", "-c", M.command(opts, out) .. " 2> " .. vim.fn.shellescape(complaint) }
+  local running = {
     on_exit = function(_, code)
       if vim.api.nvim_win_is_valid(win) then
         vim.api.nvim_win_close(win, true)
@@ -103,8 +104,14 @@ function M.pick(opts)
         opts.on_choice(choice)
       end
     end,
-  })
-  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+  }
+  if vim.fn.has "nvim-0.11" == 1 then
+    running.term = true
+    vim.fn.jobstart(argv, running)
+  else
+    vim.fn.termopen(argv, running)
+  end
+  vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
   vim.cmd.startinsert()
 end
 
