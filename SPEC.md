@@ -126,6 +126,11 @@ user picks, one line is printed and it exits. **Nothing is executed.**
 command, renders the result, runs that panel's actions, and re-runs the producer
 after each one.
 
+`--watch N` re-runs the producer every N seconds here too, so a panel whose
+world changes without anybody pressing a key keeps up with it. A redraw restores
+the cursor by row id and never changes the mode, so it cannot arrive in the
+middle of a prompt and take it away.
+
 If an action's own output parses as a panel, that panel is **pushed** instead:
 the screen becomes the new one and `q` or `esc` pops back to where you were.
 `panel` on the action declares that it does this, so a reader of the document

@@ -62,6 +62,10 @@ func main() {
 	}
 
 	opts.watch = *watch
+	if opts.watch > 0 && len(producer) == 0 {
+		fmt.Fprintln(os.Stderr, "bango: --watch needs a producer to re-run: bango --watch 5 -- CMD")
+		os.Exit(exitInvalid)
+	}
 	if *addr != "" {
 		if len(producer) == 0 {
 			fmt.Fprintln(os.Stderr, "bango: --serve needs a producer: bango --serve 127.0.0.1:0 -- CMD")

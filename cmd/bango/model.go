@@ -3,6 +3,7 @@ package main
 import (
 	"os/exec"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/emusoi/bango"
@@ -52,7 +53,28 @@ func newModel(panel bango.Panel, opts options, producer []string) *model2 {
 		folded: map[string]bool{}, width: width, height: height}
 }
 
-func (m *model2) Init() tea.Cmd { return nil }
+func (m *model2) Init() tea.Cmd {
+	if m.opts.watch > 0 && len(m.producer) > 0 {
+		return m.beat()
+	}
+	return nil
+}
+
+type beat struct{}
+
+func (m *model2) beat() tea.Cmd {
+	return tea.Tick(time.Duration(m.opts.watch)*time.Second, func(time.Time) tea.Msg { return beat{} })
+}
+
+func (m *model2) reproduce() tea.Cmd {
+	return func() tea.Msg {
+		panel, err := produce(m.producer, m.opts.want, m.opts.transport)
+		if err != nil {
+			return complaint(err.Error())
+		}
+		return panel
+	}
+}
 
 func (m *model2) rows() []bango.Row {
 	var out []bango.Row
@@ -93,6 +115,8 @@ func (m *model2) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case complaint:
 		m.notice = string(msg)
 		return m, nil
+	case beat:
+		return m, tea.Batch(m.beat(), m.reproduce())
 	}
 	return m, nil
 }

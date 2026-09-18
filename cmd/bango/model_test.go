@@ -135,3 +135,21 @@ func TestTheFilterTakesLettersThatAreNotAscii(t *testing.T) {
 		t.Errorf("backspace left %q, want café", m.typed)
 	}
 }
+
+func TestAWatchedPanelKeepsBeating(t *testing.T) {
+	m := newModel(twoRows(), options{watch: 1}, []string{"true"})
+	if m.Init() == nil {
+		t.Fatal("--watch with a producer must start the clock")
+	}
+	if newModel(twoRows(), options{}, []string{"true"}).Init() != nil {
+		t.Error("without --watch nothing should tick")
+	}
+	if newModel(twoRows(), options{watch: 1}, nil).Init() != nil {
+		t.Error("with nothing to re-run nothing should tick")
+	}
+
+	_, cmd := m.Update(beat{})
+	if cmd == nil {
+		t.Fatal("a beat must schedule the next one and re-run the producer")
+	}
+}
