@@ -1,0 +1,77 @@
+{
+  "bango": 1,
+  "id": "wide",
+  "title": "wide characters",
+  "subtitle": "two cells to a glyph",
+  "hints": [
+    "q quit"
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "label": "mixed",
+      "rows": [
+        {
+          "id": "tokyo",
+          "mark": "working",
+          "fields": [
+            {
+              "name": "where",
+              "value": "src/東京/支店.ts:42",
+              "kind": "path"
+            },
+            {
+              "name": "who",
+              "value": "田中さん"
+            },
+            {
+              "name": "n",
+              "value": "12",
+              "kind": "count"
+            }
+          ]
+        },
+        {
+          "id": "plain",
+          "mark": "done",
+          "fields": [
+            {
+              "name": "where",
+              "value": "src/auth/token.ts:42",
+              "kind": "path"
+            },
+            {
+              "name": "who",
+              "value": "claude"
+            },
+            {
+              "name": "n",
+              "value": "3",
+              "kind": "count"
+            }
+          ]
+        },
+        {
+          "id": "long",
+          "mark": "waiting",
+          "fields": [
+            {
+              "name": "where",
+              "value": "packages/クライアント/セッション/index.ts:88",
+              "kind": "path"
+            },
+            {
+              "name": "who",
+              "value": "こんにちは世界"
+            },
+            {
+              "name": "n",
+              "value": "104",
+              "kind": "count"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

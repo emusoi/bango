@@ -327,3 +327,21 @@ func TestATargetMustNameARowThatIsThere(t *testing.T) {
 		t.Errorf("path = %q", got)
 	}
 }
+
+func TestWidthIsCountedInCellsNotRunes(t *testing.T) {
+	if got := cells("東京"); got != 4 {
+		t.Errorf("cells(東京) = %d, want 4", got)
+	}
+	if got := cells("café"); got != 4 {
+		t.Errorf("cells(café) = %d, want 4", got)
+	}
+	if got := cells(Fit("東京タワーの支店", KindText, 9)); got > 9 {
+		t.Errorf("Fit to 9 gave %d cells: %q", got, Fit("東京タワーの支店", KindText, 9))
+	}
+	if got := Fit("types/graphql/utils.ts:115", KindPath, 12); got != "utils.ts:115" {
+		t.Errorf("a basename that fits was cut anyway: %q", got)
+	}
+	if got := cells(Fit("田中さん", KindCount, 10)); got != 10 {
+		t.Errorf("a padded wide value is %d cells, want 10", got)
+	}
+}

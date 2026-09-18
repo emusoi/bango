@@ -1,0 +1,9 @@
+wide characters
+two cells to a glyph
+
+mixed
+▸◐ src/東京/支店.ts:42                   田中さん        12
+ ✓ src/auth/token.ts:42                  claude           3
+ ⏎ packages/クライアント/セ…/index.ts:88 こんにちは世界 104
+
+q quit

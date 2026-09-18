@@ -21,6 +21,14 @@ check("a path fits exactly", layout.width(layout.fit("web-client/lib/utils/index
 check("a count is right aligned", layout.fit("7", "count", 4) == "   7", layout.fit("7", "count", 4))
 check("a time is never cut", layout.fit("18m", "time", 2) == "18m")
 
+check("a wide glyph is two cells", layout.width("東京") == 4, layout.width("東京"))
+check("a wide value is cut to the cell, not the character",
+  layout.width(layout.fit("東京タワーの支店", "text", 9)) <= 9,
+  layout.fit("東京タワーの支店", "text", 9))
+check("a basename that fits keeps its last character",
+  layout.fit("types/graphql/utils.ts:115", "path", 12) == "utils.ts:115",
+  layout.fit("types/graphql/utils.ts:115", "path", 12))
+
 local rows = layout.rows(panel, {})
 local headers, bodies = 0, 0
 for _, line in ipairs(rows) do

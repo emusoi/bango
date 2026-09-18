@@ -94,11 +94,29 @@ function M.columns(rows, width)
   return cols
 end
 
-local function tail(value, width)
-  if width < 2 then
-    return vim.fn.strcharpart(value, 0, math.max(width, 0))
+local function take(value, width)
+  if width <= 0 then
+    return ""
   end
-  return vim.fn.strcharpart(value, 0, width - 1) .. "…"
+  local out, chars = "", vim.fn.strchars(value)
+  for i = 0, chars - 1 do
+    local ch = vim.fn.strcharpart(value, i, 1)
+    if M.width(out .. ch) > width then
+      break
+    end
+    out = out .. ch
+  end
+  return out
+end
+
+local function tail(value, width)
+  if M.width(value) <= width then
+    return value
+  end
+  if width < 2 then
+    return take(value, width)
+  end
+  return take(value, width - 1) .. "…"
 end
 
 local function middle(value, width)
@@ -111,7 +129,7 @@ local function middle(value, width)
   if head < 1 then
     return tail(base, width)
   end
-  return vim.fn.strcharpart(value, 0, head) .. "…/" .. base
+  return take(value, head) .. "…/" .. base
 end
 
 function M.fit(value, kind, width)

@@ -2,7 +2,8 @@ package bango
 
 import (
 	"strings"
-	"unicode/utf8"
+
+	"github.com/mattn/go-runewidth"
 )
 
 const (
@@ -157,11 +158,10 @@ func Fit(value string, kind Kind, width int) string {
 }
 
 func tail(value string, width int) string {
-	runes := []rune(value)
 	if width < 2 {
-		return string(runes[:width])
+		return runewidth.Truncate(value, width, "")
 	}
-	return string(runes[:width-1]) + "…"
+	return runewidth.Truncate(value, width, "…")
 }
 
 func middle(value string, width int) string {
@@ -174,9 +174,9 @@ func middle(value string, width int) string {
 	if head < 1 {
 		return tail(base, width)
 	}
-	return string([]rune(value)[:head]) + "…/" + base
+	return runewidth.Truncate(value, head, "") + "…/" + base
 }
 
 func cells(s string) int {
-	return utf8.RuneCountInString(s)
+	return runewidth.StringWidth(s)
 }

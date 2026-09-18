@@ -1,0 +1,9 @@
+wide characters
+two cells to a glyph
+
+mixed
+▸◐ 支店.ts:42 田中さん       12
+ ✓ token.ts:42 claude          3
+ ⏎ index.ts:88 こんにちは世… 104
+
+q quit

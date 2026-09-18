@@ -25,6 +25,8 @@ func shots() []shot {
 		{"marks", Style{Width: 72}, ""},
 		{"marks", Style{Width: 72, ASCII: true}, ".ascii"},
 		{"empty", Style{Width: 72}, ""},
+		{"wide", Style{Width: 60, Cursor: "tokyo"}, ""},
+		{"wide", Style{Width: 34, Cursor: "tokyo"}, ".narrow"},
 	}
 }
 

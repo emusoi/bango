@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/emusoi/bango"
+	"github.com/mattn/go-runewidth"
 )
 
 type palette struct {
@@ -227,8 +228,8 @@ func (m *model2) style(reserve int) bango.Style {
 }
 
 func clip(s string, width int) string {
-	if width <= 0 || len([]rune(s)) <= width {
+	if width <= 0 || runewidth.StringWidth(s) <= width {
 		return s
 	}
-	return string([]rune(s)[:width-1]) + "…"
+	return runewidth.Truncate(s, width, "…")
 }

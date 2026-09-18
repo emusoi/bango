@@ -315,9 +315,11 @@ nesting at most 8, and no key ambiguous on any one row.
 
 ## Limits
 
-Widths are counted in runes. Wide characters and combining marks are not
-measured, and a panel full of CJK will render narrow. That is a known v1 limit,
-not a design position.
+Widths are counted in terminal cells, so a glyph that occupies two columns is
+measured as two and a combining mark as none. Truncation counts the same way and
+never cuts a value that already fits. A renderer that cannot measure cells
+renders CJK narrow and misaligns every column to its right; measuring is the
+conformance bar, and `fixtures/wide` is what checks it.
 
 ## Conformance
 
