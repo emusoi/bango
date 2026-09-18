@@ -134,7 +134,7 @@ func (m *model2) key(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "g", "home":
 		m.cursor = 0
 	case "G", "end":
-		m.cursor = len(m.rows()) - 1
+		m.cursor = max(len(m.rows())-1, 0)
 	case "/":
 		m.state = filtering
 		m.typed = m.query
