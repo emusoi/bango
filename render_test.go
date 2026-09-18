@@ -280,3 +280,32 @@ func TestScrollHoldsStillUntilTheCursorLeaves(t *testing.T) {
 		t.Fatalf("the last row put the window at %d, want 30", top)
 	}
 }
+
+func withRetry(retry Retry) *Panel {
+	return &Panel{Version: 1, ID: "p", Title: "t",
+		Actions: map[string]Action{"go": {Key: "R", Label: "go", Verb: "echo", Retry: []Retry{retry}}},
+		Sections: []Section{{ID: "s", Rows: []Row{
+			{ID: "a", Actions: []string{"go"}, Fields: []Field{{Name: "n", Value: "x"}}}}}}}
+}
+
+func TestARetryIsHeldToTheSameBarAsTheActionItFollows(t *testing.T) {
+	if err := Validate(withRetry(Retry{When: "denied", Label: "again", Verb: "echo"})); err != nil {
+		t.Fatalf("a whole retry must pass: %v", err)
+	}
+	for _, one := range []struct {
+		retry Retry
+		want  string
+	}{
+		{Retry{When: "denied", Label: "again"}, "actions.go.retry[0].verb"},
+		{Retry{When: "denied", Verb: "echo"}, "actions.go.retry[0].label"},
+	} {
+		err := Validate(withRetry(one.retry))
+		if err == nil {
+			t.Errorf("%+v was accepted", one.retry)
+			continue
+		}
+		if got := err.(Invalid).Path; got != one.want {
+			t.Errorf("path = %q, want %q", got, one.want)
+		}
+	}
+}

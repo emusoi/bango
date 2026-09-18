@@ -49,6 +49,15 @@ func Validate(p *Panel) error {
 		if action.Verb == "" {
 			return Invalid{where + ".verb", "an action needs a command to run"}
 		}
+		for i, retry := range action.Retry {
+			at := fmt.Sprintf("%s.retry[%d]", where, i)
+			if retry.Verb == "" {
+				return Invalid{at + ".verb", "a retry needs a command to run"}
+			}
+			if retry.Label == "" {
+				return Invalid{at + ".label", "a retry is offered on r and needs a label to offer"}
+			}
+		}
 	}
 
 	seenSections := map[string]bool{}

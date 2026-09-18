@@ -292,7 +292,8 @@ A panel may have no sections at all: that is an empty state, and `empty` is what
 it renders. Every failure names its path. `bango`, `id`, section ids unique, row
 ids unique across the panel, at least one field per row, field names unique
 within a row, known kinds and marks, `actions` naming real actions, keys unique
-and unreserved, every action requiring a `verb`,
+and unreserved, every action and every one of its retries requiring a `verb`,
+every retry requiring the `label` it is offered under,
 nesting at most 8, and no key ambiguous on any one row.
 
 ## Exit codes
