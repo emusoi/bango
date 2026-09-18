@@ -10,6 +10,9 @@ func Since(t time.Time) string {
 }
 
 func Elapsed(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
 	switch {
 	case d < time.Minute:
 		return fmt.Sprintf("%ds", int(d.Seconds()))
