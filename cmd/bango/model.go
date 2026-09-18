@@ -20,7 +20,7 @@ const (
 	choosing
 )
 
-type model2 struct {
+type model struct {
 	panel    bango.Panel
 	stack    []bango.Panel
 	retry    *bango.Retry
@@ -41,7 +41,7 @@ type model2 struct {
 	height   int
 }
 
-func newModel(panel bango.Panel, opts options, producer []string) *model2 {
+func newModel(panel bango.Panel, opts options, producer []string) *model {
 	width, height := opts.width, opts.height
 	if width == 0 {
 		width = 80
@@ -49,11 +49,11 @@ func newModel(panel bango.Panel, opts options, producer []string) *model2 {
 	if height == 0 {
 		height = 24
 	}
-	return &model2{panel: panel, opts: opts, producer: producer,
+	return &model{panel: panel, opts: opts, producer: producer,
 		folded: map[string]bool{}, width: width, height: height}
 }
 
-func (m *model2) Init() tea.Cmd {
+func (m *model) Init() tea.Cmd {
 	if m.opts.watch > 0 && len(m.producer) > 0 {
 		return m.beat()
 	}
@@ -62,11 +62,11 @@ func (m *model2) Init() tea.Cmd {
 
 type beat struct{}
 
-func (m *model2) beat() tea.Cmd {
+func (m *model) beat() tea.Cmd {
 	return tea.Tick(time.Duration(m.opts.watch)*time.Second, func(time.Time) tea.Msg { return beat{} })
 }
 
-func (m *model2) reproduce() tea.Cmd {
+func (m *model) reproduce() tea.Cmd {
 	return func() tea.Msg {
 		panel, err := produce(m.producer, m.opts.want, m.opts.transport)
 		if err != nil {
@@ -76,7 +76,7 @@ func (m *model2) reproduce() tea.Cmd {
 	}
 }
 
-func (m *model2) rows() []bango.Row {
+func (m *model) rows() []bango.Row {
 	var out []bango.Row
 	for _, line := range bango.Lines(bango.Filter(m.panel, m.query), m.folded) {
 		if !line.Header {
@@ -86,7 +86,7 @@ func (m *model2) rows() []bango.Row {
 	return out
 }
 
-func (m *model2) selected() (bango.Row, bool) {
+func (m *model) selected() (bango.Row, bool) {
 	rows := m.rows()
 	if len(rows) == 0 {
 		return bango.Row{}, false
@@ -97,7 +97,7 @@ func (m *model2) selected() (bango.Row, bool) {
 	return rows[m.cursor], true
 }
 
-func (m *model2) Update(message tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := message.(type) {
 	case tea.WindowSizeMsg:
 		if m.opts.width == 0 {
@@ -123,7 +123,7 @@ func (m *model2) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 type complaint string
 
-func (m *model2) key(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *model) key(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	switch m.state {
 	case filtering:
@@ -183,7 +183,7 @@ func (m *model2) key(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *model2) choosing(key string) (tea.Model, tea.Cmd) {
+func (m *model) choosing(key string) (tea.Model, tea.Cmd) {
 	options := m.panel.Actions[m.pending].Choices
 	switch key {
 	case "esc", "q":
@@ -202,7 +202,7 @@ func (m *model2) choosing(key string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *model2) pick(name, chosen string) {
+func (m *model) pick(name, chosen string) {
 	row, ok := m.selected()
 	if !ok {
 		return
@@ -210,7 +210,7 @@ func (m *model2) pick(name, chosen string) {
 	m.run(name, &Choice{Action: name, Row: row.TargetID(), Pick: chosen})
 }
 
-func (m *model2) typing(msg tea.KeyMsg, done func(string)) (tea.Model, tea.Cmd) {
+func (m *model) typing(msg tea.KeyMsg, done func(string)) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		m.state = browsing
@@ -249,7 +249,7 @@ func typed(msg tea.KeyMsg) string {
 	return ""
 }
 
-func (m *model2) move(delta int) {
+func (m *model) move(delta int) {
 	rows := m.rows()
 	if len(rows) == 0 {
 		return
@@ -263,7 +263,7 @@ func (m *model2) move(delta int) {
 	}
 }
 
-func (m *model2) act(key string) (tea.Model, tea.Cmd) {
+func (m *model) act(key string) (tea.Model, tea.Cmd) {
 	row, ok := m.selected()
 	if !ok {
 		return m, nil
@@ -324,7 +324,7 @@ var spellings = map[string][]string{
 	"⇥": {"tab", "<Tab>"},
 }
 
-func (m *model2) commitCmd(name, input string) (tea.Model, tea.Cmd) {
+func (m *model) commitCmd(name, input string) (tea.Model, tea.Cmd) {
 	m.commit(name, input)
 	if m.choice != nil {
 		return m, tea.Quit
@@ -332,7 +332,7 @@ func (m *model2) commitCmd(name, input string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *model2) commit(name, input string) {
+func (m *model) commit(name, input string) {
 	row, ok := m.selected()
 	if !ok {
 		return
@@ -340,7 +340,7 @@ func (m *model2) commit(name, input string) {
 	m.run(name, &Choice{Action: name, Row: row.TargetID(), Input: input})
 }
 
-func (m *model2) run(name string, choice *Choice) {
+func (m *model) run(name string, choice *Choice) {
 	if len(m.producer) == 0 {
 		m.choice = choice
 		return
@@ -360,7 +360,7 @@ func (m *model2) run(name string, choice *Choice) {
 	m.landed(out)
 }
 
-func (m *model2) landed(out []byte) {
+func (m *model) landed(out []byte) {
 	if next, ok := asPanel(out, m.opts.want); ok {
 		m.stack = append(m.stack, m.panel)
 		m.panel = next
@@ -378,7 +378,7 @@ func asPanel(out []byte, want string) (bango.Panel, bool) {
 	return panels[len(panels)-1], true
 }
 
-func (m *model2) back() bool {
+func (m *model) back() bool {
 	if len(m.stack) == 0 {
 		return false
 	}
@@ -429,7 +429,7 @@ func (r *refusal) Error() string {
 	return r.err.Error()
 }
 
-func (m *model2) runRetry(retry bango.Retry) {
+func (m *model) runRetry(retry bango.Retry) {
 	row, ok := m.selected()
 	if !ok {
 		return
@@ -444,7 +444,7 @@ func (m *model2) runRetry(retry bango.Retry) {
 	m.landed(out)
 }
 
-func (m *model2) refresh() {
+func (m *model) refresh() {
 	keep := ""
 	if row, ok := m.selected(); ok {
 		keep = row.ID
@@ -457,7 +457,7 @@ func (m *model2) refresh() {
 	m.restore(panel, keep)
 }
 
-func (m *model2) replace(panel bango.Panel) {
+func (m *model) replace(panel bango.Panel) {
 	keep := ""
 	if row, ok := m.selected(); ok {
 		keep = row.ID
@@ -465,7 +465,7 @@ func (m *model2) replace(panel bango.Panel) {
 	m.restore(panel, keep)
 }
 
-func (m *model2) restore(panel bango.Panel, keep string) {
+func (m *model) restore(panel bango.Panel, keep string) {
 	m.panel = panel
 	rows := m.rows()
 	for i, row := range rows {
@@ -478,12 +478,12 @@ func (m *model2) restore(panel bango.Panel, keep string) {
 	m.cursor = max(m.cursor, 0)
 }
 
-func (m *model2) View() string {
+func (m *model) View() string {
 	below := m.below()
 	return strings.Join(append(m.paint(len(below)), below...), "\n")
 }
 
-func (m *model2) below() []string {
+func (m *model) below() []string {
 	var lines []string
 	switch m.state {
 	case filtering:

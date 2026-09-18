@@ -17,7 +17,7 @@ func twoRows() bango.Panel {
 	}}}}
 }
 
-func typeIn(m *model2, text string) {
+func typeIn(m *model, text string) {
 	for _, r := range text {
 		m.key(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 	}

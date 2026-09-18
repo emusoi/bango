@@ -284,13 +284,13 @@ func run(panel bango.Panel, opts options, producer []string, more *stream) int {
 		fmt.Println(strings.Join(bango.Render(panel, style), "\n"))
 		return exitOK
 	}
-	model := newModel(panel, opts, producer)
+	screen := newModel(panel, opts, producer)
 	settings := []tea.ProgramOption{tea.WithAltScreen()}
 	if tty, borrowed := terminal(); borrowed {
 		defer tty.Close()
 		settings = append(settings, tea.WithInput(tty), tea.WithOutput(tty))
 	}
-	program := tea.NewProgram(model, settings...)
+	program := tea.NewProgram(screen, settings...)
 	if more != nil {
 		go follow(program, more)
 	}
@@ -304,7 +304,7 @@ func run(panel bango.Panel, opts options, producer []string, more *stream) int {
 		}
 		return fail(err)
 	}
-	done := final.(*model2)
+	done := final.(*model)
 	if done.failure != nil {
 		return fail(done.failure)
 	}

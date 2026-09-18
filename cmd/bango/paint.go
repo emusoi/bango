@@ -53,7 +53,7 @@ func colours() palette {
 	}
 }
 
-func (m *model2) paint(reserve int) []string {
+func (m *model) paint(reserve int) []string {
 	m.follow(reserve)
 	if m.opts.plain {
 		return bango.Render(m.panel, m.style(reserve))
@@ -112,7 +112,7 @@ func (m *model2) paint(reserve int) []string {
 	return append(append(head, body...), foot...)
 }
 
-func (m *model2) follow(reserve int) {
+func (m *model) follow(reserve int) {
 	cursor := ""
 	if row, ok := m.selected(); ok {
 		cursor = row.ID
@@ -132,7 +132,7 @@ func (m *model2) follow(reserve int) {
 	m.top = bango.Scroll(m.top, at, m.body(reserve), total)
 }
 
-func (m *model2) body(reserve int) int {
+func (m *model) body(reserve int) int {
 	head := 2
 	if m.panel.Subtitle != "" {
 		head++
@@ -144,7 +144,7 @@ func (m *model2) body(reserve int) int {
 	return m.height - head - foot - reserve
 }
 
-func (m *model2) paintRow(line bango.Line, cols []bango.Column, cursor string, paint palette) string {
+func (m *model) paintRow(line bango.Line, cols []bango.Column, cursor string, paint palette) string {
 	here := line.Row.ID == cursor
 	bar := " "
 	if here {
@@ -211,14 +211,14 @@ func isCount(note string) bool {
 	return note[0] >= '0' && note[0] <= '9'
 }
 
-func (m *model2) paintFooter(paint palette) []string {
+func (m *model) paintFooter(paint palette) []string {
 	if len(m.panel.Hints) == 0 {
 		return nil
 	}
 	return []string{"", paint.footer.Render(clip(strings.Join(m.panel.Hints, " · "), m.width))}
 }
 
-func (m *model2) style(reserve int) bango.Style {
+func (m *model) style(reserve int) bango.Style {
 	cursor := ""
 	if row, ok := m.selected(); ok {
 		cursor = row.ID
