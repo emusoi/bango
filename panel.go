@@ -1,5 +1,10 @@
 package bango
 
+import (
+	"slices"
+	"strings"
+)
+
 const Version = 1
 
 type Panel struct {
@@ -157,13 +162,10 @@ func (p Panel) orderedSections() []Section {
 	for i, id := range p.Order {
 		rank[id] = i
 	}
-	out := make([]Section, len(p.Sections))
-	copy(out, p.Sections)
-	for i := 1; i < len(out); i++ {
-		for j := i; j > 0 && rankOf(rank, out[j]) < rankOf(rank, out[j-1]); j-- {
-			out[j], out[j-1] = out[j-1], out[j]
-		}
-	}
+	out := slices.Clone(p.Sections)
+	slices.SortStableFunc(out, func(a, b Section) int {
+		return rankOf(rank, a) - rankOf(rank, b)
+	})
 	return out
 }
 
@@ -188,35 +190,15 @@ func (p Panel) ActionNames() []string {
 	for name := range p.Actions {
 		names = append(names, name)
 	}
-	sortStrings(names)
+	slices.Sort(names)
 	return names
-}
-
-func sortStrings(values []string) {
-	for i := 1; i < len(values); i++ {
-		for j := i; j > 0 && values[j] < values[j-1]; j-- {
-			values[j], values[j-1] = values[j-1], values[j]
-		}
-	}
 }
 
 func (a Action) RetryFor(refusal string) (Retry, bool) {
 	for _, retry := range a.Retry {
-		if retry.When == "" || contains(refusal, retry.When) {
+		if strings.Contains(refusal, retry.When) {
 			return retry, true
 		}
 	}
 	return Retry{}, false
-}
-
-func contains(haystack, needle string) bool {
-	if needle == "" {
-		return true
-	}
-	for i := 0; i+len(needle) <= len(haystack); i++ {
-		if haystack[i:i+len(needle)] == needle {
-			return true
-		}
-	}
-	return false
 }
