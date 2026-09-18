@@ -87,9 +87,17 @@ func (m *model2) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyMsg:
 		return m.key(msg)
+	case bango.Panel:
+		m.replace(msg)
+		return m, nil
+	case complaint:
+		m.notice = string(msg)
+		return m, nil
 	}
 	return m, nil
 }
+
+type complaint string
 
 func (m *model2) key(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
@@ -407,6 +415,18 @@ func (m *model2) refresh() {
 		m.notice = err.Error()
 		return
 	}
+	m.restore(panel, keep)
+}
+
+func (m *model2) replace(panel bango.Panel) {
+	keep := ""
+	if row, ok := m.selected(); ok {
+		keep = row.ID
+	}
+	m.restore(panel, keep)
+}
+
+func (m *model2) restore(panel bango.Panel, keep string) {
 	m.panel = panel
 	rows := m.rows()
 	for i, row := range rows {
@@ -415,12 +435,8 @@ func (m *model2) refresh() {
 			return
 		}
 	}
-	if m.cursor >= len(rows) {
-		m.cursor = len(rows) - 1
-	}
-	if m.cursor < 0 {
-		m.cursor = 0
-	}
+	m.cursor = min(m.cursor, len(rows)-1)
+	m.cursor = max(m.cursor, 0)
 }
 
 func (m *model2) View() string {

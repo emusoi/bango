@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -72,6 +73,20 @@ func main() {
 		os.Exit(drive(producer, opts))
 	}
 	os.Exit(pipe(os.Stdin, opts))
+}
+
+func follow(program *tea.Program, panels *stream) {
+	for {
+		next, err := panels.next()
+		if errors.Is(err, io.EOF) {
+			return
+		}
+		if err != nil {
+			program.Send(complaint(err.Error()))
+			return
+		}
+		program.Send(next)
+	}
 }
 
 type options struct {
@@ -147,15 +162,60 @@ func first(text string, n int) string {
 	return text[:n] + "…"
 }
 
+type stream struct {
+	dec  *json.Decoder
+	seen *bytes.Buffer
+	want string
+}
+
+func newStream(r io.Reader, want string) *stream {
+	seen := &bytes.Buffer{}
+	return &stream{dec: json.NewDecoder(io.TeeReader(r, seen)), seen: seen, want: want}
+}
+
+func (s *stream) next() (bango.Panel, error) {
+	for {
+		var p bango.Panel
+		err := s.dec.Decode(&p)
+		if errors.Is(err, io.EOF) {
+			return bango.Panel{}, io.EOF
+		}
+		if err != nil {
+			return bango.Panel{}, explain(s.seen.Bytes(), err)
+		}
+		if err := bango.Validate(&p); err != nil {
+			return bango.Panel{}, explain(s.seen.Bytes(), err)
+		}
+		if s.want == "" || p.ID == s.want {
+			return p, nil
+		}
+	}
+}
+
 func pipe(r io.Reader, opts options) int {
-	panels, err := read(r, opts.want)
+	panels := newStream(r, opts.want)
+	first, err := panels.next()
+	if errors.Is(err, io.EOF) {
+		return exitNothing
+	}
 	if err != nil {
 		return fail(err)
 	}
-	if len(panels) == 0 {
-		return exitNothing
+	if opts.print {
+		last := first
+		for {
+			next, err := panels.next()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				return fail(err)
+			}
+			last = next
+		}
+		return run(last, opts, nil, nil)
 	}
-	return run(panels[len(panels)-1], opts, nil)
+	return run(first, opts, nil, panels)
 }
 
 func drive(producer []string, opts options) int {
@@ -163,7 +223,7 @@ func drive(producer []string, opts options) int {
 	if err != nil {
 		return fail(err)
 	}
-	return run(panel, opts, producer)
+	return run(panel, opts, producer, nil)
 }
 
 func produce(producer []string, want string, through bango.Transport) (bango.Panel, error) {
@@ -207,7 +267,7 @@ func terminal() (*os.File, bool) {
 	return tty, true
 }
 
-func run(panel bango.Panel, opts options, producer []string) int {
+func run(panel bango.Panel, opts options, producer []string, more *stream) int {
 	if opts.print {
 		width := opts.width
 		if width == 0 {
@@ -224,6 +284,9 @@ func run(panel bango.Panel, opts options, producer []string) int {
 		settings = append(settings, tea.WithInput(tty), tea.WithOutput(tty))
 	}
 	program := tea.NewProgram(model, settings...)
+	if more != nil {
+		go follow(program, more)
+	}
 	final, err := program.Run()
 	if err != nil {
 		if strings.Contains(err.Error(), "could not open a new TTY") ||

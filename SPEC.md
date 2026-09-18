@@ -240,8 +240,12 @@ A panel arriving on stdin is never served with actions enabled.
 ## Streaming
 
 A producer may emit newline-delimited panels; a renderer redraws on each. This
-works unchanged over ssh, because it is a pipe. A
-malformed document is reported and the last good panel stays on screen.
+works unchanged over ssh, because it is a pipe. A renderer decodes a panel at a
+time rather than reading to the end, so the first one is drawn while the
+producer is still talking and a producer that never closes still shows
+something. A malformed document is reported and the last good panel stays on
+screen; the stream is not resumed, because a half-read document has no place to
+resume from.
 
 On redraw the cursor is restored by row id. If that row is gone it holds its
 index, clamped. Filter text, folds and preview scroll survive. The cursor never
@@ -260,6 +264,16 @@ moves for any other reason, and a redraw never steals focus.
 6. Floors: text 6, path 12, ref 8.
 
 Widths are computed from visible rows, so folding changes the layout.
+
+## The window
+
+The title, the subtitle and the hints are pinned; the rows between them are a
+window on the panel. It holds still while the cursor moves inside it and follows
+only when the cursor would leave, so moving one row never shifts the whole list.
+Lines a renderer adds below the panel — a filter, a prompt, a notice — are
+counted against the height first, because they take room from the same screen.
+A renderer that draws into something already scrollable, such as a buffer or a
+page, has no window and draws every row.
 
 Below about sixty columns a panel with four fields is unreadable whatever a
 renderer does. Producers should keep to three or four fields.
