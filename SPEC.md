@@ -86,6 +86,27 @@ first, here as everywhere: a tab has no width a renderer can measure.
 Values are one line and unpadded. Padding, width and alignment belong to the
 renderer, which is the only party that knows how wide the window is.
 
+## Spans
+
+A field may carry `spans`: stretches of its value the producer has already
+decided something about, counted in runes from the start of it, in order and
+never overlapping.
+
+`{"from": 0, "to": 6, "tone": "keyword"}`
+
+| tone | |
+|---|---|
+| `changed` | this part is not what was there before |
+| `comment` `string` `number` `keyword` `name` `type` | what the code is |
+
+A renderer paints a span and never works one out. That is the whole of syntax
+highlighting here: a panel of code is coloured because the producer said what
+its parts are, not because a renderer learned to read the language. A renderer
+that cannot paint a span draws the value plain, which is always correct.
+
+A tone says what a span **is**, not what colour it is; the colour is the
+renderer's, the way it already is for a `kind` or a `mark`.
+
 ## Marks
 
 | mark | meaning | unicode | ascii |

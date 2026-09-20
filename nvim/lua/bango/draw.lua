@@ -10,6 +10,9 @@ M.groups = {
   here = "BangoHere", waiting = "BangoWaiting", done = "BangoDone",
   dirty = "BangoDirty", blocked = "BangoBlocked", detached = "BangoDetached",
   working = "BangoWorking", new = "BangoNew",
+  changed = "BangoChanged", comment = "BangoComment", string = "BangoString",
+  number = "BangoNumber", keyword = "BangoKeyword", name = "BangoName",
+  type = "BangoType",
 }
 
 function M.highlights()
@@ -33,6 +36,15 @@ function M.highlights()
   link("BangoDetached", "DiagnosticWarn")
   link("BangoWorking", "Special")
   link("BangoNew", "Comment")
+  -- A tone links to what the colourscheme already calls that thing, so a panel
+  -- of code looks like the editor it is being read in.
+  link("BangoChanged", "DiffText")
+  link("BangoComment", "Comment")
+  link("BangoString", "String")
+  link("BangoNumber", "Number")
+  link("BangoKeyword", "Keyword")
+  link("BangoName", "Identifier")
+  link("BangoType", "Type")
 end
 
 local function style(col, row, here)
@@ -112,7 +124,19 @@ function M.render(panel, state)
       -- against it, nothing pads it, and it carries no highlight, because
       -- what the value means is the producer's business, not a renderer's.
       if line.verbatim then
-        table.insert(pieces, ((row.fields or {})[1] or {}).value or "")
+        local field = (row.fields or {})[1] or {}
+        local value = field.value or ""
+        -- A span is counted in runes and an extmark in bytes, so each edge is
+        -- converted through the string itself rather than assumed equal.
+        for _, span in ipairs(field.spans or {}) do
+          local from = vim.str_byteindex(value, span.from, true)
+          local to = vim.str_byteindex(value, math.min(span.to, vim.fn.strchars(value)), true)
+          local group = M.groups[span.tone or ""]
+          if group then
+            table.insert(spans, { column + from, column + to, group })
+          end
+        end
+        table.insert(pieces, value)
       end
 
       local values = {}

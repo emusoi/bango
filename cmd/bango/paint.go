@@ -21,6 +21,7 @@ type palette struct {
 	fact     lipgloss.Style
 	footer   lipgloss.Style
 	marks    map[bango.Mark]lipgloss.Style
+	tones    map[bango.Tone]lipgloss.Style
 }
 
 func colours() palette {
@@ -50,7 +51,44 @@ func colours() palette {
 			bango.MarkDetached: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "130", Dark: "179"}),
 			bango.MarkNew:      lipgloss.NewStyle().Foreground(quiet),
 		},
+		tones: map[bango.Tone]lipgloss.Style{
+			bango.ToneChanged: lipgloss.NewStyle().Foreground(accent).Bold(true),
+			bango.ToneComment: lipgloss.NewStyle().Foreground(grey).Italic(true),
+			bango.ToneString:  lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "28", Dark: "108"}),
+			bango.ToneNumber:  lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "97", Dark: "140"}),
+			bango.ToneKeyword: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "125", Dark: "175"}),
+			bango.ToneName:    lipgloss.NewStyle().Foreground(ref),
+			bango.ToneType:    lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "23", Dark: "109"}),
+		},
 	}
+}
+
+// tinted writes a value out with each span in its own tone and everything
+// between them plain. The spans were checked in order and without overlap, so
+// walking them once is the whole of it.
+func tinted(value string, spans []bango.Span, base lipgloss.Style, paint palette) string {
+	runes := []rune(value)
+	var out strings.Builder
+	at := 0
+	for _, span := range spans {
+		if span.From >= len(runes) {
+			break
+		}
+		to := min(span.To, len(runes))
+		if span.From > at {
+			out.WriteString(base.Render(string(runes[at:span.From])))
+		}
+		style, ok := paint.tones[span.Tone]
+		if !ok {
+			style = base
+		}
+		out.WriteString(style.Render(string(runes[span.From:to])))
+		at = to
+	}
+	if at < len(runes) {
+		out.WriteString(base.Render(string(runes[at:])))
+	}
+	return out.String()
 }
 
 func (m *model) paint(reserve int) []string {
@@ -61,10 +99,14 @@ func (m *model) paint(reserve int) []string {
 	shown := bango.Filter(m.panel, m.query)
 	all := bango.Lines(shown, m.folded)
 
-	var rows []bango.Row
+	shownRows, inColumns := 0, []bango.Row(nil)
 	for _, line := range all {
-		if !line.Header {
-			rows = append(rows, line.Row)
+		if line.Header {
+			continue
+		}
+		shownRows++
+		if !line.Verbatim {
+			inColumns = append(inColumns, line.Row)
 		}
 	}
 
@@ -76,7 +118,7 @@ func (m *model) paint(reserve int) []string {
 	head = append(head, "")
 	foot := m.paintFooter(paint)
 
-	if len(rows) == 0 {
+	if shownRows == 0 {
 		if m.panel.Empty != "" {
 			head = append(head, paint.dim.Render(clip(m.panel.Empty, m.width)))
 		}
@@ -89,7 +131,7 @@ func (m *model) paint(reserve int) []string {
 	}
 	var body []string
 	at := -1
-	cols := bango.Columns(rows, m.width)
+	cols := bango.Columns(inColumns, m.width)
 	for _, line := range all {
 		if line.Header {
 			body = append(body, paint.section.Render(clip(line.Label, m.width)))
@@ -159,6 +201,26 @@ func (m *model) paintRow(line bango.Line, cols []bango.Column, cursor string, pa
 		pieces = append(pieces, glyph)
 	}
 	pieces = append(pieces, " ")
+
+	base := paint.row
+	if line.Row.Dim {
+		base = paint.dim
+	}
+
+	// A verbatim row is one value, written out, with whatever the producer said
+	// about parts of it painted in.
+	if line.Verbatim {
+		if len(line.Row.Fields) > 0 {
+			field := line.Row.Fields[0]
+			// Cut first, paint second: a width is measured against the value,
+			// and an escape code has no width to measure.
+			pieces = append(pieces, tinted(clip(field.Value, m.width-3), field.Spans, base, paint))
+		}
+		if line.Row.Note != "" {
+			pieces = append(pieces, paint.note.Render(" "+line.Row.Note))
+		}
+		return strings.Join(pieces, "")
+	}
 
 	values := map[string]bango.Field{}
 	for _, field := range line.Row.Fields {

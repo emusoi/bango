@@ -143,6 +143,30 @@ func keyProblems(p *Panel) []Invalid {
 	return found
 }
 
+// A span points into a value, so it is only meaningful against that value: in
+// range, in order, and not overlapping another, because two tones on one rune
+// is a question no renderer should have to answer.
+func spanProblems(field Field, at string) []Invalid {
+	var found []Invalid
+	length := len([]rune(field.Value))
+	last := 0
+	for i, span := range field.Spans {
+		where := fmt.Sprintf("%s.spans[%d]", at, i)
+		switch {
+		case span.From < 0 || span.To > length || span.From >= span.To:
+			found = append(found, Invalid{where,
+				fmt.Sprintf("covers %d..%d of a value %d long", span.From, span.To, length)})
+		case span.From < last:
+			found = append(found, Invalid{where, "starts inside the span before it"})
+		}
+		if !span.Tone.Known() {
+			found = append(found, Invalid{where + ".tone", "unknown tone " + string(span.Tone)})
+		}
+		last = span.To
+	}
+	return found
+}
+
 func rowProblems(row *Row, where string, p *Panel, seen map[string]bool, depth int) []Invalid {
 	if depth > maxDepth {
 		return []Invalid{{where, fmt.Sprintf("nested deeper than %d", maxDepth)}}
@@ -174,6 +198,7 @@ func rowProblems(row *Row, where string, p *Panel, seen map[string]bool, depth i
 		if !field.Kind.Known() {
 			found = append(found, Invalid{at + ".kind", "unknown kind " + string(field.Kind)})
 		}
+		found = append(found, spanProblems(field, at)...)
 		if strings.ContainsAny(field.Value, "\n\r\t") {
 			found = append(found, Invalid{at + ".value", "a field value is one line"})
 		}

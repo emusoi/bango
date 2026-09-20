@@ -41,7 +41,19 @@
           "fields": [
             {
               "name": "code",
-              "value": "  40   func Valid(t Token, now time.Time) bool {"
+              "value": "  40   func Valid(t Token, now time.Time) bool {",
+              "spans": [
+                {
+                  "from": 7,
+                  "to": 11,
+                  "tone": "keyword"
+                },
+                {
+                  "from": 20,
+                  "to": 25,
+                  "tone": "type"
+                }
+              ]
             }
           ]
         },
@@ -60,7 +72,24 @@
           "fields": [
             {
               "name": "code",
-              "value": "  42  +        return t.Expires.Unix() >= now.Unix() && t.Signature.Verify(t.Payload, key)"
+              "value": "  42  +        return t.Expires.Unix() >= now.Unix() && t.Signature.Verify(t.Payload, key)",
+              "spans": [
+                {
+                  "from": 15,
+                  "to": 21,
+                  "tone": "keyword"
+                },
+                {
+                  "from": 22,
+                  "to": 31,
+                  "tone": "name"
+                },
+                {
+                  "from": 39,
+                  "to": 41,
+                  "tone": "changed"
+                }
+              ]
             }
           ],
           "note": "t1"

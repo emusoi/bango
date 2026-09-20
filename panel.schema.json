@@ -112,6 +112,19 @@
           "description": "Unique within a row. Columns are the union of these, in first-seen order."
         },
         "value": { "$ref": "#/$defs/oneLine" },
+        "spans": {
+          "type": "array",
+          "description": "Stretches of the value the producer has already decided something about, in runes, in order and not overlapping.",
+          "items": {
+            "type": "object",
+            "required": ["from", "to"],
+            "properties": {
+              "from": { "type": "integer", "minimum": 0 },
+              "to": { "type": "integer", "minimum": 1 },
+              "tone": { "enum": ["changed", "comment", "string", "number", "keyword", "name", "type"] }
+            }
+          }
+        },
         "kind": { "$ref": "#/$defs/kind" }
       }
     },

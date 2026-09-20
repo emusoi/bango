@@ -43,6 +43,14 @@ tr.dim td { color: var(--muted); }
 .mark[data-mark="dirty"] { color: var(--dirty); }
 .mark[data-mark="blocked"] { color: var(--blocked); }
 .mark[data-mark="detached"] { color: var(--detached); }
+/* A tone says what a span is; the page decides what colour that is. */
+.t-changed { color: var(--dirty); font-weight: 600; }
+.t-comment { color: var(--muted); font-style: italic; }
+.t-string  { color: var(--done); }
+.t-number  { color: var(--detached); }
+.t-keyword { color: var(--waiting); }
+.t-name    { color: var(--fg); }
+.t-type    { color: var(--blocked); }
 .detail { padding: 6px 0 12px 2ch; color: var(--muted); white-space: pre-wrap; }
 .detail pre { margin: 6px 0 0; white-space: pre-wrap; font: inherit; }
 .acts { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
@@ -255,7 +263,7 @@ function line(row, depth, cols, verbatim) {
     // through the elastic spacer as well, so what a long value overflows into
     // is the column that is there to absorb it, not the ones rows share.
     td.colSpan = Math.max(cols.length, 1) + 1;
-    td.textContent = (row.fields || [])[0]?.value ?? "";
+    td.append(...tinted((row.fields || [])[0]));
     tr.append(td);
     tr.append(noteCell(row));
     return tr;
@@ -277,6 +285,30 @@ function line(row, depth, cols, verbatim) {
 
   tr.append(noteCell(row));
   return tr;
+}
+
+// A value with nothing said about it is one text node. A value with spans is
+// that value cut at the edges the producer gave, each piece wearing its tone.
+// Nothing here looks at what the text says.
+function tinted(field) {
+  const value = field?.value ?? "";
+  const spans = field?.spans || [];
+  if (!spans.length) return [document.createTextNode(value)];
+  const runes = [...value];
+  const out = [];
+  let at = 0;
+  for (const span of spans) {
+    if (span.from >= runes.length) break;
+    const to = Math.min(span.to, runes.length);
+    if (span.from > at) out.push(document.createTextNode(runes.slice(at, span.from).join("")));
+    const piece = document.createElement("span");
+    if (span.tone) piece.className = "t-" + span.tone;
+    piece.textContent = runes.slice(span.from, to).join("");
+    out.push(piece);
+    at = to;
+  }
+  if (at < runes.length) out.push(document.createTextNode(runes.slice(at).join("")));
+  return out;
 }
 
 function noteCell(row) {

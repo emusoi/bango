@@ -52,10 +52,43 @@ type Row struct {
 	Target   string   `json:"target,omitempty"`
 }
 
+// A Span is a stretch of a value the producer has already decided something
+// about, counted in runes from the start of it. A renderer paints one. It never
+// works one out, which is what keeps a panel of code from needing a renderer
+// that can read the language it is in.
+type Span struct {
+	From int  `json:"from"`
+	To   int  `json:"to"`
+	Tone Tone `json:"tone,omitempty"`
+}
+
+// Tone is what a span is, not what colour it is. A renderer decides the colour,
+// the way it does for a Kind or a Mark.
+type Tone string
+
+const (
+	ToneChanged Tone = "changed"
+	ToneComment Tone = "comment"
+	ToneString  Tone = "string"
+	ToneNumber  Tone = "number"
+	ToneKeyword Tone = "keyword"
+	ToneName    Tone = "name"
+	ToneType    Tone = "type"
+)
+
+func (t Tone) Known() bool {
+	switch t {
+	case "", ToneChanged, ToneComment, ToneString, ToneNumber, ToneKeyword, ToneName, ToneType:
+		return true
+	}
+	return false
+}
+
 type Field struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 	Kind  Kind   `json:"kind,omitempty"`
+	Spans []Span `json:"spans,omitempty"`
 }
 
 type Action struct {
