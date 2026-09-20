@@ -392,6 +392,10 @@ renderer does. Producers should keep to three or four fields.
 
 ## Filter
 
+A reader may close a section that the producer left open. That is a view, like
+the cursor: the document is unchanged, the count in the subtitle is unchanged,
+and a panel whose every section is closed is not an empty panel.
+
 The haystack is the row id, every field value and the note, lowercased. All
 whitespace-separated terms must match, in any order. A parent whose child
 matches stays; a child whose parent matches does not. Sections with no surviving
