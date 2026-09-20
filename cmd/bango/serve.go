@@ -31,11 +31,21 @@ type server struct {
 
 	mu       sync.RWMutex
 	panel    bango.Panel
-	stack    []bango.Panel
+	stack    []frame
+	making   []string // what produced the panel being served
 	trouble  string
 	revision int
 
 	listeners sync.Map
+}
+
+// A panel that was opened by an action was not printed by the producer this
+// server was started with, so refreshing it means running the command that
+// printed it. A frame is the pair: what is on screen, and what would print it
+// again.
+type frame struct {
+	panel bango.Panel
+	from  []string
 }
 
 func serve(producer []string, opts options, addr string, readOnly bool) int {
@@ -208,14 +218,14 @@ func (s *server) depth() int {
 // printed a panel opens it, and anything else means refresh from the producer.
 // Nothing here reads the action's `panel` field, because the output already
 // says whether there is one.
-func (s *server) landed(out []byte) error {
+func (s *server) landed(out []byte, from []string) error {
 	next, ok := asPanel(out, s.opts.want)
 	if !ok {
 		return s.refresh()
 	}
 	s.mu.Lock()
-	s.stack = append(s.stack, s.panel)
-	s.panel, s.trouble = next, ""
+	s.stack = append(s.stack, frame{s.panel, s.making})
+	s.panel, s.making, s.trouble = next, from, ""
 	s.revision++
 	s.mu.Unlock()
 	s.announce()
@@ -227,9 +237,9 @@ func (s *server) landed(out []byte) error {
 func (s *server) back(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	if len(s.stack) > 0 {
-		s.panel = s.stack[len(s.stack)-1]
+		back := s.stack[len(s.stack)-1]
 		s.stack = s.stack[:len(s.stack)-1]
-		s.trouble = ""
+		s.panel, s.making, s.trouble = back.panel, back.from, ""
 		s.revision++
 	}
 	s.mu.Unlock()
@@ -300,7 +310,13 @@ func (s *server) announce() {
 }
 
 func (s *server) refresh() error {
-	panel, err := produce(s.producer, s.opts.want, s.opts.transport)
+	s.mu.RLock()
+	making := s.making
+	s.mu.RUnlock()
+	if making == nil {
+		making = s.producer
+	}
+	panel, err := produce(making, s.opts.want, s.opts.transport)
 	s.mu.Lock()
 	if err != nil {
 		s.trouble = err.Error()
@@ -313,6 +329,8 @@ func (s *server) refresh() error {
 	return err
 }
 
+// --watch re-runs the producer, and only the producer. The command that opened
+// a panel ran because somebody asked for it; a clock is not somebody.
 func (s *server) poll(every time.Duration) {
 	for range time.Tick(every) {
 		if s.depth() > 0 {
@@ -360,13 +378,14 @@ func (s *server) act(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	choice.Row = row.TargetID()
+	from := argvFor(action, &choice, s.opts.transport)
 	out, err := execute(action, &choice, s.opts.transport)
 	if err != nil {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
-	if err := s.landed(out); err != nil {
+	if err := s.landed(out, from); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

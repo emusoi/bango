@@ -231,3 +231,36 @@ func TestARowActionStillNeedsItsRow(t *testing.T) {
 		t.Fatalf("a row action with no row got %d: %s", got.Code, got.Body)
 	}
 }
+
+// An action that prints no panel refreshes the screen it was run on. It used to
+// re-run the producer the server was started with, so answering a question
+// inside an opened panel threw that panel away and went back to the first one.
+func TestAnActionInsideAnOpenedPanelStaysThere(t *testing.T) {
+	s := testServer(t, false)
+	s.panel.Actions = map[string]bango.Action{
+		"open":  {Key: "o", Verb: "printf", Args: []string{"%s", opened}, Panel: "deeper", Global: true},
+		"touch": {Key: "t", Verb: "true", Global: true},
+	}
+	if got := ask(s, "POST", "/act?t=secret", `{"action":"open","row":"r"}`, nil); got.Code != http.StatusOK {
+		t.Fatalf("open got %d: %s", got.Code, got.Body)
+	}
+
+	// The opened panel carries no actions of its own, so the one being run is
+	// the one that was on screen when it opened; what matters is where it lands.
+	s.mu.Lock()
+	s.panel.Actions = map[string]bango.Action{"touch": {Key: "t", Verb: "true", Global: true}}
+	s.mu.Unlock()
+
+	got := ask(s, "POST", "/act?t=secret", `{"action":"touch","row":""}`, nil)
+	if got.Code != http.StatusOK {
+		t.Fatalf("touch got %d: %s", got.Code, got.Body)
+	}
+	if id, depth := served(t, got); id != "deeper" || depth != 1 {
+		t.Fatalf("after an action it is serving %q at depth %d, not the panel it was run on", id, depth)
+	}
+
+	back := ask(s, "POST", "/back?t=secret", "", nil)
+	if id, depth := served(t, back); id != "t" || depth != 0 {
+		t.Fatalf("back reached %q at depth %d", id, depth)
+	}
+}

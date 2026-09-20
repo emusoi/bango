@@ -336,13 +336,18 @@ async function run(name, action, row) {
 
 // A panel arrives with the depth it sits at, so the page never counts its own
 // way back — the server is the one that knows.
+// Answering a question about a line is not a reason to lose the line. A panel
+// that comes back at the depth it was at is the same screen, so the cursor
+// stays on it; a panel opened or left behind is a different one, and starts at
+// its own top.
 function adopt(payload) {
+  const moved = (payload.depth || 0) !== depth;
   panel = payload.panel;
   depth = payload.depth || 0;
-  cursor = null;
+  if (moved) cursor = null;
   $("alert").textContent = payload.trouble || "";
-  draw(false);
-  window.scrollTo(0, 0);
+  draw(!moved);
+  if (moved) window.scrollTo(0, 0);
 }
 
 async function back() {

@@ -270,6 +270,13 @@ the row being answered about is shown above it.
 A page has no window on the panel, so moving the cursor scrolls it into view.
 A refresh does not: someone reading is not to be moved by a producer.
 
+An action that prints no panel refreshes the screen it was run on, by running
+whatever printed that screen — the producer at the bottom, and the command that
+opened it anywhere above. The cursor stays where it was, because answering a
+question about a row is not a reason to lose the row. `--watch` re-runs the
+producer only: a command that opened a panel ran because somebody asked for it,
+and a clock is not somebody.
+
 An action whose command prints a panel opens it here as it does in a terminal,
 and the server keeps the way back rather than the page: `depth` is how many
 panels are below the one being served, `POST /back` pops one, and a page at the
