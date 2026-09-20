@@ -96,6 +96,10 @@
           "description": "At most 8 deep, which this schema cannot express."
         },
         "dim": { "type": "boolean" },
+        "tone": {
+          "enum": ["added", "removed"],
+          "description": "What the whole row is, when that is worth saying."
+        },
         "target": {
           "type": "string",
           "description": "The id an action uses instead of this row's own."

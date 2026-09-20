@@ -6,6 +6,7 @@ open
 internal/auth/token.go
      40   func Valid(t Token, now time.Time) bool {
      41       if t.Issuer != expected {
+     41  -        return t.Expires.Unix() > now.Unix()
 ▸⏎   42  +        return t.Expires.Unix() >= now.Unix() && t.Signature.Verify(t.Payload, …
      43       }
 

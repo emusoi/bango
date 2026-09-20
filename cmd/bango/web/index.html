@@ -8,11 +8,15 @@
   --bg: #fbfbfa; --fg: #1a1a18; --muted: #6b6b66; --line: #e4e4e0;
   --sel: #ececeb; --waiting: #b4552d; --done: #3f7d4e; --dirty: #a5852b;
   --blocked: #a33; --detached: #8a6d1f;
+  --added: #e8f2ea; --removed: #fbeaea;
+  --added-edge: #9ec6a6; --removed-edge: #d79e9e;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #16161a; --fg: #e8e8e4; --muted: #8a8a84; --line: #2a2a30;
           --sel: #23232a; --waiting: #e0875a; --done: #7fbf8f; --dirty: #d6b75f;
-          --blocked: #e08080; --detached: #cbb26a; }
+          --blocked: #e08080; --detached: #cbb26a;
+          --added: #14251a; --removed: #2a1719;
+          --added-edge: #2f6137; --removed-edge: #6d3234; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg);
@@ -23,13 +27,25 @@ h1 { font-size: 15px; font-weight: 600; margin: 0; }
 /* A label is the producer's words — a path, a ref, a name — so it is drawn
    as it was written. Lowercasing one quietly changed what it said. */
 .section { color: var(--muted); font-size: 12px; letter-spacing: .04em; }
-td.section { padding: 18px 0 6px; max-width: none; }
+/* The file you are in should still be named on the screen when you are forty
+   lines into it. */
+td.section { padding: 0; max-width: none; position: sticky; top: 0; z-index: 2; }
+td.section .bar { background: var(--bg); border-bottom: 1px solid var(--line);
+  padding: 20px 0 6px; }
 td.verbatim { max-width: none; width: auto; white-space: pre; overflow: visible;
   text-overflow: clip; }
-tr:has(> td.section) { border-bottom: none; }
 table { width: 100%; border-collapse: collapse; }
-tr { border-bottom: 1px solid var(--line); cursor: default; }
+tr { cursor: default; }
+
+/* A list is rows of data and reads better ruled. Code is not: a rule under
+   every line turns a file into a ledger. Lines are set closer together, carry
+   no rule, and take a background only where the row says what it is. */
+tr.listed { border-bottom: 1px solid var(--line); }
+tr.lined td { padding-top: 1px; padding-bottom: 1px; line-height: 1.5; }
+tr.added td { background: var(--added); box-shadow: inset 2px 0 0 var(--added-edge); }
+tr.removed td { background: var(--removed); box-shadow: inset 2px 0 0 var(--removed-edge); }
 tr.sel { background: var(--sel); }
+tr.lined.sel td { background: var(--sel); box-shadow: inset 2px 0 0 var(--muted); }
 td { padding: 5px 14px 5px 0; vertical-align: top; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; max-width: 48ch; width: 1%; }
 td.grow { width: auto; }
@@ -240,15 +256,20 @@ function heading(label) {
   const td = document.createElement("td");
   td.colSpan = 99;
   td.className = "section";
-  td.textContent = label;
+  const bar = document.createElement("div");
+  bar.className = "bar";
+  bar.textContent = label;
+  td.append(bar);
   tr.append(td);
   return tr;
 }
 
 function line(row, depth, cols, verbatim) {
   const tr = document.createElement("tr");
+  tr.classList.add(verbatim ? "lined" : "listed");
   if (row.id === cursor) tr.classList.add("sel");
   if (row.dim) tr.classList.add("dim");
+  if (row.tone) tr.classList.add(row.tone);
   tr.onclick = () => { cursor = row.id; draw(false); };
 
   const mark = document.createElement("td");

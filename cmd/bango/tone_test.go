@@ -69,3 +69,31 @@ func strip(s string) string {
 	}
 	return out.String()
 }
+
+// What a row is shows even where there is no background to show it on: a
+// terminal says it in the ink.
+func TestARowSaysWhatItIsInATerminal(t *testing.T) {
+	was := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.ANSI)
+	defer lipgloss.SetColorProfile(was)
+
+	field := bango.Field{Name: "code", Value: "   42 +     return true"}
+	plain := bango.Row{ID: "a", Fields: []bango.Field{field}}
+	added := bango.Row{ID: "b", Fields: []bango.Field{field}, Tone: bango.RowAdded}
+	removed := bango.Row{ID: "c", Fields: []bango.Field{field}, Tone: bango.RowRemoved}
+
+	m := &model{width: 80}
+	paint := colours()
+	draw := func(row bango.Row) string {
+		return m.paintRow(bango.Line{Row: row, Verbatim: true}, nil, "", paint)
+	}
+	one, two, three := draw(plain), draw(added), draw(removed)
+	for _, got := range []string{one, two, three} {
+		if !strings.Contains(strip(got), "return true") {
+			t.Fatalf("the line is missing: %q", strip(got))
+		}
+	}
+	if two == one || three == one || two == three {
+		t.Fatalf("added, removed and neither all look the same:\n %q\n %q\n %q", one, two, three)
+	}
+}

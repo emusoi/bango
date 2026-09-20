@@ -49,6 +49,7 @@ type Row struct {
 	Preview  []string `json:"preview,omitempty"`
 	Children []Row    `json:"children,omitempty"`
 	Dim      bool     `json:"dim,omitempty"`
+	Tone     RowTone  `json:"tone,omitempty"`
 	Target   string   `json:"target,omitempty"`
 }
 
@@ -60,6 +61,25 @@ type Span struct {
 	From int  `json:"from"`
 	To   int  `json:"to"`
 	Tone Tone `json:"tone,omitempty"`
+}
+
+// RowTone is what a whole row is, when that is a thing worth saying: a line
+// added, a line taken away. A renderer draws the difference; it never works out
+// which is which from the text, which is why a panel of diff needs no renderer
+// that understands one.
+type RowTone string
+
+const (
+	RowAdded   RowTone = "added"
+	RowRemoved RowTone = "removed"
+)
+
+func (r RowTone) Known() bool {
+	switch r {
+	case "", RowAdded, RowRemoved:
+		return true
+	}
+	return false
 }
 
 // Tone is what a span is, not what colour it is. A renderer decides the colour,

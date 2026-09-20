@@ -182,6 +182,9 @@ func rowProblems(row *Row, where string, p *Panel, seen map[string]bool, depth i
 	if !row.Mark.Known() {
 		found = append(found, Invalid{where + ".mark", "unknown mark " + string(row.Mark)})
 	}
+	if !row.Tone.Known() {
+		found = append(found, Invalid{where + ".tone", "unknown tone " + string(row.Tone)})
+	}
 	if len(row.Fields) == 0 {
 		found = append(found, Invalid{where + ".fields", "a row needs at least one field"})
 	}

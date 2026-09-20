@@ -107,6 +107,11 @@ that cannot paint a span draws the value plain, which is always correct.
 A tone says what a span **is**, not what colour it is; the colour is the
 renderer's, the way it already is for a `kind` or a `mark`.
 
+A row may carry a `tone` of its own — `added` or `removed` — for when the whole
+row is the thing being said. A renderer lays it under the line: a background in
+a page, ink in a terminal, a highlight group in a buffer. Here too nothing is
+inferred, so a panel of diff needs no renderer that has ever seen one.
+
 ## Marks
 
 | mark | meaning | unicode | ascii |

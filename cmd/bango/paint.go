@@ -22,6 +22,7 @@ type palette struct {
 	footer   lipgloss.Style
 	marks    map[bango.Mark]lipgloss.Style
 	tones    map[bango.Tone]lipgloss.Style
+	rows     map[bango.RowTone]lipgloss.Style
 }
 
 func colours() palette {
@@ -59,6 +60,12 @@ func colours() palette {
 			bango.ToneKeyword: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "125", Dark: "175"}),
 			bango.ToneName:    lipgloss.NewStyle().Foreground(ref),
 			bango.ToneType:    lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "23", Dark: "109"}),
+		},
+		// A terminal has no gentle background to lay under a line, so what a row
+		// is shows in the ink instead.
+		rows: map[bango.RowTone]lipgloss.Style{
+			bango.RowAdded:   lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "22", Dark: "108"}),
+			bango.RowRemoved: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "124", Dark: "167"}),
 		},
 	}
 }
@@ -205,6 +212,9 @@ func (m *model) paintRow(line bango.Line, cols []bango.Column, cursor string, pa
 	base := paint.row
 	if line.Row.Dim {
 		base = paint.dim
+	}
+	if style, ok := paint.rows[line.Row.Tone]; ok {
+		base = style
 	}
 
 	// A verbatim row is one value, written out, with whatever the producer said

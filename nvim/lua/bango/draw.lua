@@ -10,6 +10,7 @@ M.groups = {
   here = "BangoHere", waiting = "BangoWaiting", done = "BangoDone",
   dirty = "BangoDirty", blocked = "BangoBlocked", detached = "BangoDetached",
   working = "BangoWorking", new = "BangoNew",
+  added = "BangoAdded", removed = "BangoRemoved",
   changed = "BangoChanged", comment = "BangoComment", string = "BangoString",
   number = "BangoNumber", keyword = "BangoKeyword", name = "BangoName",
   type = "BangoType",
@@ -45,6 +46,8 @@ function M.highlights()
   link("BangoKeyword", "Keyword")
   link("BangoName", "Identifier")
   link("BangoType", "Type")
+  link("BangoAdded", "DiffAdd")
+  link("BangoRemoved", "DiffDelete")
 end
 
 local function style(col, row, here)
@@ -126,6 +129,12 @@ function M.render(panel, state)
       if line.verbatim then
         local field = (row.fields or {})[1] or {}
         local value = field.value or ""
+        -- What the row is goes under the whole line; what its parts are goes
+        -- over the top, span by span.
+        local whole = M.groups[row.tone or ""]
+        if whole then
+          table.insert(spans, { column, column + #value, whole })
+        end
         -- A span is counted in runes and an extmark in bytes, so each edge is
         -- converted through the string itself rather than assumed equal.
         for _, span in ipairs(field.spans or {}) do
