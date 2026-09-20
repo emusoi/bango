@@ -20,8 +20,10 @@ body { margin: 0; background: var(--bg); color: var(--fg);
 main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
 h1 { font-size: 15px; font-weight: 600; margin: 0; }
 .sub { color: var(--muted); margin: 2px 0 20px; }
-.section { margin: 18px 0 6px; color: var(--muted); font-size: 12px;
+.section { color: var(--muted); font-size: 12px;
   text-transform: lowercase; letter-spacing: .04em; }
+td.section { padding: 18px 0 6px; max-width: none; }
+tr:has(> td.section) { border-bottom: none; }
 table { width: 100%; border-collapse: collapse; }
 tr { border-bottom: 1px solid var(--line); cursor: default; }
 tr.sel { background: var(--sel); }
@@ -100,15 +102,10 @@ function draw() {
   if (!rows.some(([r]) => r.id === cursor)) cursor = rows.length ? rows[0][0].id : null;
 
   const cols = columns(panel);
+  const table = document.createElement("table");
   for (const section of panel.sections || []) {
-    if (section.label) {
-      const head = document.createElement("div");
-      head.className = "section";
-      head.textContent = section.label;
-      body.append(head);
-    }
+    if (section.label) table.append(heading(section.label));
     if (section.collapsed) continue;
-    const table = document.createElement("table");
     const walk = (row, depth) => {
       table.append(line(row, depth, cols));
       if (row.id === cursor) {
@@ -118,9 +115,19 @@ function draw() {
       (row.children || []).forEach(child => walk(child, depth + 1));
     };
     (section.rows || []).forEach(r => walk(r, 0));
-    body.append(table);
   }
+  if (table.childElementCount) body.append(table);
   $("hints").textContent = (panel.hints || []).join("  ·  ");
+}
+
+function heading(label) {
+  const tr = document.createElement("tr");
+  const td = document.createElement("td");
+  td.colSpan = 99;
+  td.className = "section";
+  td.textContent = label;
+  tr.append(td);
+  return tr;
 }
 
 function line(row, depth, cols) {
@@ -202,12 +209,23 @@ async function run(name, action, row) {
   });
   if (!response.ok) {
     const body = await response.text();
-    $("alert").textContent = body.trim();
+    $("alert").textContent = unwrap(body);
     return;
   }
   const next = await response.json();
   panel = next.panel;
   draw();
+}
+
+// The server reports a refused action as {"error": "<what the producer said>"}.
+// That is bango's own envelope, so it comes off here; whatever is inside is the
+// producer's, and is shown exactly as it was written.
+function unwrap(body) {
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed && typeof parsed.error === "string") return parsed.error.trim();
+  } catch (e) { /* not ours; show it whole */ }
+  return body.trim();
 }
 
 function listen() {
