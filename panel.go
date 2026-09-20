@@ -13,6 +13,10 @@ type Panel struct {
 	Title    string            `json:"title"`
 	Subtitle string            `json:"subtitle,omitempty"`
 	Empty    string            `json:"empty,omitempty"`
+	// At is the row the cursor starts on. Without it every panel opens at the
+	// top, which is right for a list and wrong for a file somebody was sent
+	// into at a particular line.
+	At string `json:"at,omitempty"`
 	Hints    []string          `json:"hints,omitempty"`
 	Order    []string          `json:"order,omitempty"`
 	Sections []Section         `json:"sections,omitempty"`

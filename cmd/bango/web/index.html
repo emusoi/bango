@@ -472,7 +472,9 @@ function adopt(payload, moved) {
   // A word typed to find something on one screen is not a word about the next
   // one. Left behind, it silently empties whatever you arrive at.
   if (moved) {
-    cursor = null;
+    // A panel may say where to begin. A file somebody was sent into at a line
+    // should open on that line, not at its top.
+    cursor = panel && panel.at ? panel.at : null;
     anchor = null;
     query = "";
     $("sift-text").value = "";
@@ -480,7 +482,11 @@ function adopt(payload, moved) {
   }
   $("alert").textContent = payload.trouble || "";
   draw(!moved);
-  if (moved) window.scrollTo(0, 0);
+  if (moved && !(panel && panel.at)) window.scrollTo(0, 0);
+  if (moved && panel && panel.at) {
+    const at = $("body").querySelector("tr.sel");
+    if (at) at.scrollIntoView({ block: "center" });
+  }
 }
 
 async function back() {

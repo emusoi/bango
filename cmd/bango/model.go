@@ -131,6 +131,24 @@ func (m *model) span() (bango.Row, bango.Row, bool) {
 
 // picked names every row a selection covers, so a renderer can show the run
 // rather than only its ends.
+// startAt is where a panel says to begin, which is the top unless it named a
+// row. A panel that names a row nobody can see starts at the top too.
+func (m *model) startAt(p bango.Panel) int {
+	if p.At == "" {
+		return 0
+	}
+	was := m.panel
+	m.panel = p
+	rows := m.rows()
+	m.panel = was
+	for i, row := range rows {
+		if row.ID == p.At {
+			return i
+		}
+	}
+	return 0
+}
+
 func (m *model) picked() map[string]bool {
 	out := map[string]bool{}
 	if m.anchor < 0 {
@@ -450,7 +468,7 @@ func (m *model) landed(out []byte, from []string) {
 	if next, ok := asPanel(out, m.opts.want); ok {
 		m.stack = append(m.stack, frame{m.panel, m.making})
 		m.panel, m.making = next, from
-		m.cursor = 0
+		m.cursor = m.startAt(next)
 		return
 	}
 	m.refresh()
