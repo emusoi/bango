@@ -101,9 +101,9 @@ func tinted(value string, spans []bango.Span, base lipgloss.Style, paint palette
 func (m *model) paint(reserve int) []string {
 	m.follow(reserve)
 	if m.opts.plain {
-		return bango.Render(m.panel, m.style(reserve))
+		return bango.Render(m.shown(), m.style(reserve))
 	}
-	shown := bango.Filter(m.panel, m.query)
+	shown := m.shown()
 	all := bango.Lines(shown, m.folded)
 
 	shownRows, inColumns := 0, []bango.Row(nil)
@@ -167,7 +167,7 @@ func (m *model) follow(reserve int) {
 		cursor = row.ID
 	}
 	at, total := -1, 0
-	for _, line := range bango.Lines(bango.Filter(m.panel, m.query), m.folded) {
+	for _, line := range bango.Lines(m.shown(), m.folded) {
 		if line.Header {
 			total++
 			continue

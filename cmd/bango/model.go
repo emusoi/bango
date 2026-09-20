@@ -22,7 +22,8 @@ const (
 
 type model struct {
 	panel    bango.Panel
-	stack    []bango.Panel
+	stack    []frame
+	making   []string // what printed the panel on screen
 	retry    *bango.Retry
 	opts     options
 	producer []string
@@ -68,7 +69,11 @@ func (m *model) beat() tea.Cmd {
 
 func (m *model) reproduce() tea.Cmd {
 	return func() tea.Msg {
-		panel, err := produce(m.producer, m.opts.want, m.opts.transport)
+		making := m.making
+	if making == nil {
+		making = m.producer
+	}
+	panel, err := produce(making, m.opts.want, m.opts.transport)
 		if err != nil {
 			return complaint(err.Error())
 		}
@@ -76,14 +81,33 @@ func (m *model) reproduce() tea.Cmd {
 	}
 }
 
+// shown is the panel as this reader has it. Every part of the renderer walks
+// this and not m.panel, so what the cursor counts and what the eye sees are the
+// same list.
+func (m *model) shown() bango.Panel {
+	return bango.Filter(m.panel, m.query)
+}
+
 func (m *model) rows() []bango.Row {
 	var out []bango.Row
-	for _, line := range bango.Lines(bango.Filter(m.panel, m.query), m.folded) {
+	for _, line := range bango.Lines(m.shown(), m.folded) {
 		if !line.Header {
 			out = append(out, line.Row)
 		}
 	}
 	return out
+}
+
+// toMark walks to the next row the producer marked. A mark is a row asking for
+// something, and crossing a long panel between them is what a reader does.
+func (m *model) toMark(step int) {
+	rows := m.rows()
+	for i := m.cursor + step; i >= 0 && i < len(rows); i += step {
+		if rows[i].Mark != bango.MarkNone {
+			m.cursor = i
+			return
+		}
+	}
 }
 
 func (m *model) selected() (bango.Row, bool) {
@@ -177,6 +201,10 @@ func (m *model) key(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.typed = m.query
 	case "?":
 		m.state = helping
+	case "]":
+		m.toMark(1)
+	case "[":
+		m.toMark(-1)
 	case " ":
 		if row, ok := m.selected(); ok && len(row.Children) > 0 {
 			m.folded[row.ID] = !m.folded[row.ID]
@@ -360,6 +388,7 @@ func (m *model) run(name string, choice *Choice) {
 		m.notice = wouldRun(action, choice, m.opts.transport)
 		return
 	}
+	from := argvFor(action, choice, m.opts.transport)
 	out, err := execute(action, choice, m.opts.transport)
 	if err != nil {
 		m.notice = err.Error()
@@ -368,13 +397,13 @@ func (m *model) run(name string, choice *Choice) {
 		}
 		return
 	}
-	m.landed(out)
+	m.landed(out, from)
 }
 
-func (m *model) landed(out []byte) {
+func (m *model) landed(out []byte, from []string) {
 	if next, ok := asPanel(out, m.opts.want); ok {
-		m.stack = append(m.stack, m.panel)
-		m.panel = next
+		m.stack = append(m.stack, frame{m.panel, m.making})
+		m.panel, m.making = next, from
 		m.cursor = 0
 		return
 	}
@@ -393,8 +422,9 @@ func (m *model) back() bool {
 	if len(m.stack) == 0 {
 		return false
 	}
-	m.panel = m.stack[len(m.stack)-1]
+	back := m.stack[len(m.stack)-1]
 	m.stack = m.stack[:len(m.stack)-1]
+	m.panel, m.making = back.panel, back.from
 	m.cursor = 0
 	return true
 }
@@ -455,12 +485,13 @@ func (m *model) runRetry(retry bango.Retry) {
 		m.notice = wouldRun(action, choice, m.opts.transport)
 		return
 	}
+	from := argvFor(action, choice, m.opts.transport)
 	out, err := execute(action, choice, m.opts.transport)
 	if err != nil {
 		m.notice = err.Error()
 		return
 	}
-	m.landed(out)
+	m.landed(out, from)
 }
 
 func (m *model) refresh() {
@@ -468,7 +499,11 @@ func (m *model) refresh() {
 	if row, ok := m.selected(); ok {
 		keep = row.ID
 	}
-	panel, err := produce(m.producer, m.opts.want, m.opts.transport)
+	making := m.making
+	if making == nil {
+		making = m.producer
+	}
+	panel, err := produce(making, m.opts.want, m.opts.transport)
 	if err != nil {
 		m.notice = err.Error()
 		return

@@ -154,8 +154,13 @@ turns it off entirely.
 | `retry` | `[{when, label, verb, args}]` — offered when a refusal contains `when` |
 | `help` | one sentence, shown under `?` |
 
-`/`, `?`, `q`, `esc`, `j`, `k`, `g`, `G` and space are reserved by renderers and
-rejected at validation.
+`/`, `?`, `q`, `esc`, `j`, `k`, `g`, `G`, `]`, `[` and space are reserved by
+renderers and rejected at validation.
+
+`]` and `[` go to the next and previous row carrying a mark. A mark is the
+producer saying a row wants something, so this is how a reader crosses a panel
+too long to scroll without deciding for them what is worth stopping at. Space still closes a row's
+children where it has them.
 
 A key must be unambiguous **for a row**, not across the panel: two actions may
 share a key when no single row offers both, which is how `D` can mean *forget the

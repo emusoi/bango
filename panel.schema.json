@@ -147,7 +147,7 @@
         "key": {
           "type": "string",
           "minLength": 1,
-          "not": { "enum": ["/", "?", "q", "⎋", "esc", "j", "k", "g", "G", " "] },
+          "not": { "enum": ["/", "?", "q", "⎋", "esc", "j", "k", "g", "G", " ", "]", "["] },
           "description": "Unambiguous for a row, not across the panel. Renderer keys are reserved."
         },
         "label": { "type": "string" },

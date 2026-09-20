@@ -68,7 +68,7 @@ func TestAnActionThatPrintsNothingIsNotAPanel(t *testing.T) {
 
 func TestTheStackPopsBeforeQuitting(t *testing.T) {
 	m := newModel(bango.Panel{Version: bango.Version, ID: "second", Title: "second"}, options{}, []string{"true"})
-	m.stack = []bango.Panel{{Version: bango.Version, ID: "first", Title: "first"}}
+	m.stack = []frame{{panel: bango.Panel{Version: bango.Version, ID: "first", Title: "first"}}}
 	if !m.back() {
 		t.Fatal("back should pop")
 	}
