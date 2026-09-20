@@ -24,7 +24,20 @@ type Section struct {
 	Label     string `json:"label,omitempty"`
 	Rows      []Row  `json:"rows,omitempty"`
 	Collapsed bool   `json:"collapsed,omitempty"`
+	Layout    Layout `json:"layout,omitempty"`
 }
+
+// Layout is how a section's rows are placed. Columns is the default and the
+// only one that aligns anything; Lines draws each row's one field as it was
+// written, which is what content too wide or too exact to be a column needs.
+type Layout string
+
+const (
+	LayoutColumns Layout = "columns"
+	LayoutLines   Layout = "lines"
+)
+
+func (l Layout) verbatim() bool { return l == LayoutLines }
 
 type Row struct {
 	ID       string   `json:"id"`

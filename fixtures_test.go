@@ -27,6 +27,8 @@ func shots() []shot {
 		{"empty", Style{Width: 72}, ""},
 		{"wide", Style{Width: 60, Cursor: "tokyo"}, ""},
 		{"wide", Style{Width: 34, Cursor: "tokyo"}, ".narrow"},
+		{"lines", Style{Width: 90, Cursor: "l42"}, ""},
+		{"lines", Style{Width: 46, Cursor: "l42"}, ".narrow"},
 	}
 }
 

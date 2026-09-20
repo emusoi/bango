@@ -79,5 +79,20 @@ if handle then
   pcall(handle.close)
 end
 
+-- The three renderers must agree about a lines section: the value is written
+-- out whole, and no column is measured against it.
+local read = vim.json.decode(table.concat(vim.fn.readfile "fixtures/lines.json", "\n"))
+local drawn = draw.render(read, { width = 90, cursor = "l42" })
+local widest = read.sections[2].rows[3].fields[1].value
+check("a verbatim value is written out whole",
+  vim.tbl_contains(drawn.lines, function(l) return l:find(widest, 1, true) ~= nil end, { predicate = true }),
+  table.concat(drawn.lines, "\n"))
+
+local counted = 0
+for _, line in ipairs(layout.rows(read, {})) do
+  if not line.header and not line.verbatim then counted = counted + 1 end
+end
+check("a lines row is not one of the rows a column is measured from", counted == 1, counted)
+
 if failures > 0 then os.exit(1) end
 print("bango.nvim native renderer ok")

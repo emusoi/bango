@@ -60,6 +60,10 @@
         "id": { "$ref": "#/$defs/identifier" },
         "label": { "type": "string" },
         "collapsed": { "type": "boolean" },
+        "layout": {
+          "enum": ["columns", "lines"],
+          "description": "How the rows are placed. Columns is the default and aligns them; lines writes each row's one field out as it was given."
+        },
         "rows": { "type": "array", "items": { "$ref": "#/$defs/row" } }
       }
     },

@@ -13,11 +13,12 @@ type Style struct {
 }
 
 type Line struct {
-	Row     Row
-	Depth   int
-	Section string
-	Header  bool
-	Label   string
+	Row      Row
+	Depth    int
+	Section  string
+	Header   bool
+	Label    string
+	Verbatim bool
 }
 
 func Lines(p Panel, folded map[string]bool) []Line {
@@ -30,19 +31,19 @@ func Lines(p Panel, folded map[string]bool) []Line {
 			continue
 		}
 		for _, row := range section.Rows {
-			out = append(out, lines(row, section.ID, 0, folded)...)
+			out = append(out, lines(row, section.ID, 0, folded, section.Layout.verbatim())...)
 		}
 	}
 	return out
 }
 
-func lines(row Row, section string, depth int, folded map[string]bool) []Line {
-	out := []Line{{Row: row, Depth: depth, Section: section}}
+func lines(row Row, section string, depth int, folded map[string]bool, verbatim bool) []Line {
+	out := []Line{{Row: row, Depth: depth, Section: section, Verbatim: verbatim}}
 	if folded[row.ID] {
 		return out
 	}
 	for _, child := range row.Children {
-		out = append(out, lines(child, section, depth+1, folded)...)
+		out = append(out, lines(child, section, depth+1, folded, verbatim)...)
 	}
 	return out
 }
@@ -56,7 +57,7 @@ func Render(p Panel, style Style) []string {
 
 	var rows []Row
 	for _, line := range all {
-		if !line.Header {
+		if !line.Header && !line.Verbatim {
 			rows = append(rows, line.Row)
 		}
 	}
@@ -131,6 +132,18 @@ func paint(line Line, cols []Column, style Style) string {
 		cursor = MarkHere.Glyph(style.ASCII)
 	}
 	parts := []string{cursor, line.Row.Mark.Glyph(style.ASCII), " "}
+
+	// A verbatim row is one value, written out. Nothing is padded to a column
+	// it does not share, and nothing is aligned against a row it only sits near.
+	if line.Verbatim {
+		if len(line.Row.Fields) > 0 {
+			parts = append(parts, line.Row.Fields[0].Value)
+		}
+		if line.Row.Note != "" {
+			parts = append(parts, " "+line.Row.Note)
+		}
+		return strings.TrimRight(strings.Join(parts, ""), " ")
+	}
 
 	values := map[string]Field{}
 	for _, field := range line.Row.Fields {

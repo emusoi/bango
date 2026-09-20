@@ -1,0 +1,12 @@
+read · main..HEAD
+internal/auth/token.go
+
+open
+ ⏎ internal/auth/token.go:42 >= accepts a token expiring exactly now               blocker
+internal/auth/token.go
+     40   func Valid(t Token, now time.Time) bool {
+     41       if t.Issuer != expected {
+▸⏎   42  +        return t.Expires.Unix() >= now.Unix() && t.Signature.Verify(t.Payload, …
+     43       }
+
+⏎ comment · ]t next finding · q back

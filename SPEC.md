@@ -31,8 +31,28 @@ producer builds its sections from the world and orders them from a fixed list.
 
 ## Section
 
-`id`, `label`, `rows`, `collapsed`. Grouping and ordering are the producer's
-answer, not something a renderer re-derives.
+`id`, `label`, `rows`, `collapsed`, `layout`. Grouping and ordering are the
+producer's answer, not something a renderer re-derives.
+
+`layout` is how the section's rows are placed.
+
+| | |
+|---|---|
+| `columns` (default) | the columns below: a width per field name, measured across the rows that share it |
+| `lines` | each row is one field, written out as it was given |
+
+A `lines` row carries exactly one field and is never measured against anything:
+no column is computed from it, nothing is padded to meet it, and no other
+section's widths move because of it. It is for content that is already a line —
+a hunk of a diff, a stack trace, a log — where a column would cut off the part
+that matters. Marks, notes, actions and folding work there as they do anywhere.
+
+What a renderer may still do is its own: a terminal is a fixed width and
+truncates, a buffer or a page is already scrollable and does not. What no
+renderer does is read the value. Nothing is coloured, aligned or grouped by what
+the text turns out to say, which is why a `lines` section can hold code without
+a renderer having to know the language. A producer that wants a tab expands it
+first, here as everywhere: a tab has no width a renderer can measure.
 
 ## Row
 
@@ -82,6 +102,10 @@ renderer, which is the only party that knows how wide the window is.
 
 A renderer may express a mark with colour or weight as well, never with colour
 alone, and never with a glyph outside the set it declares.
+
+A renderer places a row. It never interprets one. Everything a renderer colours
+or marks was declared by the producer — `kind`, `mark`, `dim` — and nothing is
+inferred from what a value turns out to contain.
 
 Colour follows `kind` as well: a `count` is the accent, a `ref` reads as a
 reference, a `time` is quiet, a section label is quiet and italic, and a `dim`
@@ -304,7 +328,8 @@ moves for any other reason, and a redraw never steals focus.
    everything else is at its floor.
 6. Floors: text 6, path 12, ref 8.
 
-Widths are computed from visible rows, so folding changes the layout.
+Widths are computed from visible rows, so folding changes the layout. Rows in a
+`lines` section are not among them.
 
 ## The window
 

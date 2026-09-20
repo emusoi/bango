@@ -67,9 +67,19 @@ func Problems(p *Panel) []Invalid {
 			found = append(found, Invalid{where + ".id", "duplicate section id " + section.ID})
 		}
 		seenSections[section.ID] = true
+		switch section.Layout {
+		case "", LayoutColumns, LayoutLines:
+		default:
+			found = append(found, Invalid{where + ".layout",
+				"unknown layout " + string(section.Layout) + "; columns or lines"})
+		}
 		for j := range section.Rows {
 			found = append(found, rowProblems(&section.Rows[j],
 				fmt.Sprintf("%s.rows[%d]", where, j), p, seenRows, 1)...)
+			if section.Layout.verbatim() && len(section.Rows[j].Fields) > 1 {
+				found = append(found, Invalid{fmt.Sprintf("%s.rows[%d].fields", where, j),
+					"a lines row is one field; there is nothing to align a second against"})
+			}
 		}
 	}
 

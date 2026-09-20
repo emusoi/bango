@@ -177,8 +177,9 @@ function M.rows(panel, folded)
       table.insert(out, { header = true, label = section.label, section = section.id })
     end
     if not section.collapsed then
+      local verbatim = section.layout == "lines"
       local function walk(row, depth)
-        table.insert(out, { row = row, depth = depth })
+        table.insert(out, { row = row, depth = depth, verbatim = verbatim })
         if not (folded or {})[row.id] then
           for _, child in ipairs(row.children or {}) do
             walk(child, depth + 1)

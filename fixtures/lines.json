@@ -1,0 +1,80 @@
+{
+  "bango": 1,
+  "id": "read",
+  "title": "read · main..HEAD",
+  "subtitle": "internal/auth/token.go",
+  "hints": [
+    "⏎ comment",
+    "]t next finding",
+    "q back"
+  ],
+  "sections": [
+    {
+      "id": "findings",
+      "label": "open",
+      "rows": [
+        {
+          "id": "t1",
+          "mark": "waiting",
+          "fields": [
+            {
+              "name": "where",
+              "value": "internal/auth/token.go:42",
+              "kind": "path"
+            },
+            {
+              "name": "what",
+              "value": ">= accepts a token expiring exactly now"
+            }
+          ],
+          "note": "blocker"
+        }
+      ]
+    },
+    {
+      "id": "hunk",
+      "label": "internal/auth/token.go",
+      "layout": "lines",
+      "rows": [
+        {
+          "id": "l40",
+          "fields": [
+            {
+              "name": "code",
+              "value": "  40   func Valid(t Token, now time.Time) bool {"
+            }
+          ]
+        },
+        {
+          "id": "l41",
+          "fields": [
+            {
+              "name": "code",
+              "value": "  41       if t.Issuer != expected {"
+            }
+          ]
+        },
+        {
+          "id": "l42",
+          "mark": "waiting",
+          "fields": [
+            {
+              "name": "code",
+              "value": "  42  +        return t.Expires.Unix() >= now.Unix() && t.Signature.Verify(t.Payload, key)"
+            }
+          ],
+          "note": "t1"
+        },
+        {
+          "id": "l43",
+          "fields": [
+            {
+              "name": "code",
+              "value": "  43       }"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

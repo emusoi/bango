@@ -60,7 +60,7 @@ function M.render(panel, state)
 
   local rows = {}
   for _, line in ipairs(lines) do
-    if not line.header then
+    if not line.header and not line.verbatim then
       table.insert(rows, line.row)
     end
   end
@@ -100,13 +100,21 @@ function M.render(panel, state)
       table.insert(pieces, mark)
       table.insert(pieces, " ")
 
+      local spans = {}
+      local column = layout.width(table.concat(pieces))
+
+      -- A verbatim row is one value, written out: no column is measured
+      -- against it, nothing pads it, and it carries no highlight, because
+      -- what the value means is the producer's business, not a renderer's.
+      if line.verbatim then
+        table.insert(pieces, ((row.fields or {})[1] or {}).value or "")
+      end
+
       local values = {}
       for _, field in ipairs(row.fields or {}) do
         values[field.name] = field
       end
-      local spans = {}
-      local column = layout.width(table.concat(pieces))
-      for i, col in ipairs(cols) do
+      for i, col in ipairs(line.verbatim and {} or cols) do
         local field = values[col.name] or {}
         local value = field.value or ""
         if i == 1 and line.depth > 0 then

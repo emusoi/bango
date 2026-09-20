@@ -1,0 +1,12 @@
+read · main..HEAD
+internal/auth/token.go
+
+open
+ ⏎ inte…/token.go:42 >= accepts a tok… blocker
+internal/auth/token.go
+     40   func Valid(t Token, now time.Time) …
+     41       if t.Issuer != expected {
+▸⏎   42  +        return t.Expires.Unix() >= …
+     43       }
+
+⏎ comment · ]t next finding · q back

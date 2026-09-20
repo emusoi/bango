@@ -23,6 +23,8 @@ h1 { font-size: 15px; font-weight: 600; margin: 0; }
 .section { color: var(--muted); font-size: 12px;
   text-transform: lowercase; letter-spacing: .04em; }
 td.section { padding: 18px 0 6px; max-width: none; }
+td.verbatim { max-width: none; width: auto; white-space: pre; overflow: visible;
+  text-overflow: clip; }
 tr:has(> td.section) { border-bottom: none; }
 table { width: 100%; border-collapse: collapse; }
 tr { border-bottom: 1px solid var(--line); cursor: default; }
@@ -77,16 +79,24 @@ $("back").onclick = () => back();
 
 function rowsOf(p) {
   const out = [];
-  const walk = (r, depth) => { out.push([r, depth]); (r.children || []).forEach(c => walk(c, depth + 1)); };
-  (p.sections || []).forEach(s => { if (!s.collapsed) (s.rows || []).forEach(r => walk(r, 0)); });
+  const walk = (r, depth, verbatim) => {
+    out.push([r, depth, verbatim]);
+    (r.children || []).forEach(c => walk(c, depth + 1, verbatim));
+  };
+  (p.sections || []).forEach(s => {
+    if (!s.collapsed) (s.rows || []).forEach(r => walk(r, 0, s.layout === "lines"));
+  });
   return out;
 }
 
 function columns(p) {
   const names = [];
-  rowsOf(p).forEach(([r]) => (r.fields || []).forEach(f => {
-    if (!names.some(n => n.name === f.name)) names.push({ name: f.name, kind: f.kind || "text" });
-  }));
+  rowsOf(p).forEach(([r, , verbatim]) => {
+    if (verbatim) return;
+    (r.fields || []).forEach(f => {
+      if (!names.some(n => n.name === f.name)) names.push({ name: f.name, kind: f.kind || "text" });
+    });
+  });
   return names;
 }
 
@@ -112,8 +122,9 @@ function draw() {
   for (const section of panel.sections || []) {
     if (section.label) table.append(heading(section.label));
     if (section.collapsed) continue;
+    const verbatim = section.layout === "lines";
     const walk = (row, depth) => {
-      table.append(line(row, depth, cols));
+      table.append(line(row, depth, cols, verbatim));
       if (row.id === cursor) {
         const detail = details(row);
         if (detail) table.append(detail);
@@ -136,7 +147,7 @@ function heading(label) {
   return tr;
 }
 
-function line(row, depth, cols) {
+function line(row, depth, cols, verbatim) {
   const tr = document.createElement("tr");
   if (row.id === cursor) tr.classList.add("sel");
   if (row.dim) tr.classList.add("dim");
@@ -147,6 +158,18 @@ function line(row, depth, cols) {
   mark.dataset.mark = row.mark || "";
   mark.textContent = glyphs[row.mark] || "";
   tr.append(mark);
+
+  if (verbatim) {
+    const td = document.createElement("td");
+    td.className = "verbatim";
+    // through the elastic spacer as well, so what a long value overflows into
+    // is the column that is there to absorb it, not the ones rows share.
+    td.colSpan = Math.max(cols.length, 1) + 1;
+    td.textContent = (row.fields || [])[0]?.value ?? "";
+    tr.append(td);
+    tr.append(noteCell(row));
+    return tr;
+  }
 
   const byName = Object.fromEntries((row.fields || []).map(f => [f.name, f]));
   cols.forEach((col, i) => {
@@ -162,11 +185,15 @@ function line(row, depth, cols) {
   spacer.className = "grow";
   tr.append(spacer);
 
+  tr.append(noteCell(row));
+  return tr;
+}
+
+function noteCell(row) {
   const note = document.createElement("td");
   note.className = "note";
   note.textContent = row.note || "";
-  tr.append(note);
-  return tr;
+  return note;
 }
 
 function details(row) {
