@@ -262,6 +262,14 @@ panel, and binds every action's own key, so what the hints promise is what the
 screen does. `?` lists them all with their `help`. A global action belongs to
 the screen, so it runs with no row at all and a panel with no rows still has it.
 
+`input` and `confirm` are asked in the page, not with `prompt` and `confirm`,
+which stop it dead and give one line to answer in. `input` opens a box that
+takes as many lines as the answer needs — ⌘⏎ or ctrl⏎ saves, esc cancels — and
+the row being answered about is shown above it.
+
+A page has no window on the panel, so moving the cursor scrolls it into view.
+A refresh does not: someone reading is not to be moved by a producer.
+
 An action whose command prints a panel opens it here as it does in a terminal,
 and the server keeps the way back rather than the page: `depth` is how many
 panels are below the one being served, `POST /back` pops one, and a page at the

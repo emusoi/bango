@@ -61,6 +61,19 @@ button[disabled] { opacity: .4; cursor: not-allowed; }
 .back:hover { color: var(--fg); background: none; }
 .alert { margin-top: 14px; color: var(--blocked); white-space: pre-wrap; }
 .off { position: fixed; top: 10px; right: 12px; color: var(--muted); font-size: 12px; }
+dialog { border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
+  color: var(--fg); padding: 0; width: min(680px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(0, 0, 0, .45); }
+dialog .inner { padding: 16px; }
+dialog p { margin: 0 0 10px; font: inherit; }
+dialog .where { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+dialog textarea { width: 100%; min-height: 108px; resize: vertical; font: inherit;
+  color: var(--fg); background: transparent; border: 1px solid var(--line);
+  border-radius: 4px; padding: 8px; }
+dialog textarea:focus { outline: none; border-color: var(--muted); }
+dialog .row { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+dialog .row .spacer { flex: 1; }
+dialog .row small { color: var(--muted); font-size: 11px; }
 </style>
 </head>
 <body>
@@ -75,6 +88,19 @@ button[disabled] { opacity: .4; cursor: not-allowed; }
   <div class="alert" id="alert"></div>
 </main>
 <div class="off" id="off" hidden>disconnected</div>
+<dialog id="ask">
+  <div class="inner">
+    <p id="ask-what"></p>
+    <div class="where" id="ask-where"></div>
+    <textarea id="ask-text" spellcheck="true"></textarea>
+    <div class="row">
+      <small id="ask-how"></small>
+      <span class="spacer"></span>
+      <button type="button" id="ask-no">cancel</button>
+      <button type="button" id="ask-yes">save</button>
+    </div>
+  </div>
+</dialog>
 <script>
 const token = new URLSearchParams(location.search).get("t") || "";
 const glyphs = { here: "▸", new: "○", working: "◐", waiting: "⏎",
@@ -111,7 +137,10 @@ function columns(p) {
   return names;
 }
 
-function draw() {
+// A page has no window on the panel — it draws every row — so keeping the
+// cursor in sight is its own job. Only a move asks for it: a refresh arriving
+// while someone is reading must not pull the page out from under them.
+function draw(follow) {
   if (!panel) return;
   $("back").hidden = depth === 0;
   $("title").textContent = panel.title || "";
@@ -153,6 +182,18 @@ function draw() {
     globals.append(button(name, action, undefined));
   }
   drawHelp();
+
+  if (follow) {
+    const at = body.querySelector("tr.sel");
+    if (at) {
+      at.scrollIntoView({ block: "nearest" });
+      // What the row offers is drawn under it, so it is part of being in sight.
+      const under = at.nextElementSibling;
+      if (under && under.querySelector(".detail")) {
+        under.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }
 }
 
 // `?` is a reserved key everywhere, and the page had no answer for it. Every
@@ -200,7 +241,7 @@ function line(row, depth, cols, verbatim) {
   const tr = document.createElement("tr");
   if (row.id === cursor) tr.classList.add("sel");
   if (row.dim) tr.classList.add("dim");
-  tr.onclick = () => { cursor = row.id; draw(); };
+  tr.onclick = () => { cursor = row.id; draw(false); };
 
   const mark = document.createElement("td");
   mark.className = "mark";
@@ -275,10 +316,10 @@ function details(row) {
 async function run(name, action, row) {
   let input = "";
   if (action.input) {
-    input = prompt(action.input) || "";
+    input = await ask(action.input, row, true);
     if (!input) return;
   }
-  if (action.confirm && !confirm(action.confirm)) return;
+  if (action.confirm && !(await ask(action.confirm, row, false))) return;
   $("alert").textContent = "";
   const response = await fetch("/act?t=" + encodeURIComponent(token), {
     method: "POST",
@@ -300,7 +341,8 @@ function adopt(payload) {
   depth = payload.depth || 0;
   cursor = null;
   $("alert").textContent = payload.trouble || "";
-  draw();
+  draw(false);
+  window.scrollTo(0, 0);
 }
 
 async function back() {
@@ -323,6 +365,42 @@ function unwrap(body) {
   return body.trim();
 }
 
+// A native prompt is one line, unstyled, and stops the page dead while it is up.
+// Writing a finding is the main thing anybody does here, so it gets somewhere to
+// write: a box on the page, as many lines as the finding needs.
+function ask(what, row, writing) {
+  const dialog = $("ask");
+  const text = $("ask-text");
+  $("ask-what").textContent = what;
+  $("ask-where").textContent = row ? (row.fields || []).map(f => f.value).join("  ").trim() : "";
+  $("ask-where").hidden = !row;
+  text.hidden = !writing;
+  text.value = "";
+  $("ask-how").textContent = writing ? "⌘⏎ or ctrl⏎ to save · esc to cancel" : "esc to cancel";
+  $("ask-yes").textContent = writing ? "save" : "yes";
+  return new Promise((settle) => {
+    // Settled by what closes it, not by the close event: the answer is known at
+    // the moment a button is pressed, and nothing has to be read back off the
+    // element afterwards.
+    const finish = (yes) => {
+      dialog.onkeydown = null;
+      dialog.close();
+      settle(yes ? (writing ? text.value.trim() : true) : (writing ? "" : false));
+    };
+    $("ask-yes").onclick = () => finish(true);
+    $("ask-no").onclick = () => finish(false);
+    dialog.onkeydown = (event) => {
+      if (event.key === "Escape") { event.preventDefault(); finish(false); }
+      if (event.key === "Enter" && (event.metaKey || event.ctrlKey || !writing)) {
+        event.preventDefault();
+        finish(true);
+      }
+    };
+    dialog.showModal();
+    if (writing) text.focus();
+  });
+}
+
 function listen() {
   const source = new EventSource("/events?t=" + encodeURIComponent(token));
   source.onmessage = (event) => {
@@ -331,13 +409,13 @@ function listen() {
     depth = payload.depth || 0;
     $("alert").textContent = payload.trouble || "";
     $("off").hidden = true;
-    draw();
+    draw(false);
   };
   source.onerror = () => { $("off").hidden = false; };
 }
 
 document.addEventListener("keydown", (event) => {
-  if (!panel) return;
+  if (!panel || $("ask").open) return;
   if (event.key === "?") { event.preventDefault(); helping = !helping; drawHelp(); return; }
   if (event.key === "Escape" || event.key === "q") { event.preventDefault(); back(); return; }
   for (const [name, action] of globalActions()) {
@@ -364,7 +442,7 @@ document.addEventListener("keydown", (event) => {
   else return;
   event.preventDefault();
   cursor = rows[at][0].id;
-  draw();
+  draw(true);
 });
 
 fetch("/panel?t=" + encodeURIComponent(token), { headers: { "X-Bango-Token": token } })
