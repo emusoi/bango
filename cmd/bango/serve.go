@@ -344,8 +344,12 @@ func (s *server) act(w http.ResponseWriter, r *http.Request) {
 	}
 	row, found := panel.Find(choice.Row)
 	if !found {
-		http.Error(w, "no row called "+choice.Row, http.StatusBadRequest)
-		return
+		// A global action is the screen's, not a row's, so an empty panel is
+		// still one it can be run on.
+		if !action.Global || choice.Row != "" {
+			http.Error(w, "no row called "+choice.Row, http.StatusBadRequest)
+			return
+		}
 	}
 	if !action.Global && !allows(row, choice.Action) {
 		http.Error(w, choice.Action+" is not offered on "+choice.Row, http.StatusForbidden)

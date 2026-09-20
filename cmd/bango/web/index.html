@@ -52,6 +52,10 @@ button:hover { background: var(--sel); }
 button[disabled] { opacity: .4; cursor: not-allowed; }
 .empty { color: var(--muted); padding: 24px 0; }
 .hints { margin-top: 28px; color: var(--muted); font-size: 12px; }
+.globals { display: flex; gap: 6px; flex-wrap: wrap; margin: 22px 0 0; }
+.help { margin-top: 18px; color: var(--muted); font-size: 12px; }
+.help div { padding: 2px 0; }
+.help b { color: var(--fg); font-weight: 600; display: inline-block; min-width: 3ch; }
 .back { color: var(--muted); font-size: 12px; margin-bottom: 10px; cursor: pointer;
   background: none; border: none; padding: 0; font-family: inherit; }
 .back:hover { color: var(--fg); background: none; }
@@ -65,6 +69,8 @@ button[disabled] { opacity: .4; cursor: not-allowed; }
   <h1 id="title"></h1>
   <div class="sub" id="subtitle"></div>
   <div id="body"></div>
+  <div class="globals" id="globals"></div>
+  <div class="help" id="help" hidden></div>
   <div class="hints" id="hints"></div>
   <div class="alert" id="alert"></div>
 </main>
@@ -73,9 +79,13 @@ button[disabled] { opacity: .4; cursor: not-allowed; }
 const token = new URLSearchParams(location.search).get("t") || "";
 const glyphs = { here: "▸", new: "○", working: "◐", waiting: "⏎",
   done: "✓", dirty: "●", blocked: "⨯", detached: "⚠" };
-let panel = null, cursor = null, readOnly = false, depth = 0;
+let panel = null, cursor = null, readOnly = false, depth = 0, helping = false;
 
 const $ = (id) => document.getElementById(id);
+
+// A panel writes its keys the way they are drawn. A keyboard names them.
+const named = { Enter: "⏎", " ": "space", Escape: "esc" };
+const keyOf = (event) => named[event.key] || event.key;
 $("back").onclick = () => back();
 
 function rowsOf(p) {
@@ -136,6 +146,44 @@ function draw() {
   }
   if (table.childElementCount) body.append(table);
   $("hints").textContent = (panel.hints || []).join("  ·  ");
+
+  const globals = $("globals");
+  globals.replaceChildren();
+  for (const [name, action] of globalActions()) {
+    globals.append(button(name, action, undefined));
+  }
+  drawHelp();
+}
+
+// `?` is a reserved key everywhere, and the page had no answer for it. Every
+// action, its key and what it is for, whether or not a row offering it is under
+// the cursor.
+function drawHelp() {
+  const help = $("help");
+  help.hidden = !helping;
+  help.replaceChildren();
+  if (!helping) return;
+  for (const [name, action] of Object.entries((panel && panel.actions) || {})) {
+    const line = document.createElement("div");
+    const key = document.createElement("b");
+    key.textContent = action.key || " ";
+    line.append(key, (action.label || name) + (action.help ? " — " + action.help : ""));
+    help.append(line);
+  }
+}
+
+// A global action is the screen's, not a row's. Nothing drew them, so a panel
+// that offered them offered them to nobody.
+function globalActions() {
+  return Object.entries((panel && panel.actions) || {}).filter(([, a]) => a.global);
+}
+
+function button(name, action, row) {
+  const element = document.createElement("button");
+  element.textContent = (action.label || name) + (action.key ? "  " + action.key : "");
+  element.disabled = readOnly;
+  element.onclick = (event) => { event.stopPropagation(); run(name, action, row); };
+  return element;
 }
 
 function heading(label) {
@@ -217,11 +265,7 @@ function details(row) {
   for (const name of row.actions || []) {
     const action = (panel.actions || {})[name];
     if (!action) continue;
-    const button = document.createElement("button");
-    button.textContent = (action.label || name) + (action.key ? "  " + action.key : "");
-    button.disabled = readOnly;
-    button.onclick = (event) => { event.stopPropagation(); run(name, action, row); };
-    acts.append(button);
+    acts.append(button(name, action, row));
   }
   if (acts.childElementCount) td.append(acts);
   tr.append(td);
@@ -239,7 +283,7 @@ async function run(name, action, row) {
   const response = await fetch("/act?t=" + encodeURIComponent(token), {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Bango-Token": token },
-    body: JSON.stringify({ action: name, row: row.id, input }),
+    body: JSON.stringify({ action: name, row: row ? row.id : (cursor || ""), input }),
   });
   if (!response.ok) {
     const body = await response.text();
@@ -293,12 +337,30 @@ function listen() {
 }
 
 document.addEventListener("keydown", (event) => {
-  const rows = rowsOf(panel || {});
+  if (!panel) return;
+  if (event.key === "?") { event.preventDefault(); helping = !helping; drawHelp(); return; }
+  if (event.key === "Escape" || event.key === "q") { event.preventDefault(); back(); return; }
+  for (const [name, action] of globalActions()) {
+    if (action.key === keyOf(event)) {
+      event.preventDefault();
+      run(name, action, undefined);
+      return;
+    }
+  }
+  const rows = rowsOf(panel);
   if (!rows.length) return;
   let at = rows.findIndex(([r]) => r.id === cursor);
+  const here = at >= 0 ? rows[at][0] : undefined;
+  for (const name of (here && here.actions) || []) {
+    const action = (panel.actions || {})[name];
+    if (action && action.key === keyOf(event)) {
+      event.preventDefault();
+      run(name, action, here);
+      return;
+    }
+  }
   if (event.key === "j" || event.key === "ArrowDown") at = Math.min(at + 1, rows.length - 1);
   else if (event.key === "k" || event.key === "ArrowUp") at = Math.max(at - 1, 0);
-  else if (event.key === "Escape" || event.key === "q") { event.preventDefault(); back(); return; }
   else return;
   event.preventDefault();
   cursor = rows[at][0].id;

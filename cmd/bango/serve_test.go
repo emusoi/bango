@@ -205,3 +205,29 @@ func served(t *testing.T, got *httptest.ResponseRecorder) (string, int) {
 	}
 	return payload.Panel.ID, payload.Depth
 }
+
+// A global action is the screen's, not a row's, so it runs on a panel with no
+// rows at all. Nothing could reach one from a page before.
+func TestAGlobalActionRunsWithoutARow(t *testing.T) {
+	s := testServer(t, false)
+	s.panel.Actions = map[string]bango.Action{
+		"browse": {Key: "b", Verb: "printf", Args: []string{"%s", opened}, Panel: "deeper", Global: true},
+	}
+	got := ask(s, "POST", "/act?t=secret", `{"action":"browse","row":""}`, nil)
+	if got.Code != http.StatusOK {
+		t.Fatalf("a global action with no row got %d: %s", got.Code, got.Body)
+	}
+	if id, _ := served(t, got); id != "deeper" {
+		t.Fatalf("serving %q", id)
+	}
+}
+
+// A row's action still belongs to that row.
+func TestARowActionStillNeedsItsRow(t *testing.T) {
+	s := testServer(t, false)
+	s.panel.Actions = map[string]bango.Action{"wipe": {Key: "x", Verb: "false"}}
+	got := ask(s, "POST", "/act?t=secret", `{"action":"wipe","row":""}`, nil)
+	if got.Code != http.StatusBadRequest {
+		t.Fatalf("a row action with no row got %d: %s", got.Code, got.Body)
+	}
+}

@@ -257,6 +257,11 @@ http://127.0.0.1:59065/?t=31c073d0…
 | `POST /act` | `{action, row, input}` — runs it, refreshes, returns the new panel |
 | `POST /back` | leaves the panel an action opened, for the one it was opened from |
 
+A page draws a row's actions under the cursor and a global action under the
+panel, and binds every action's own key, so what the hints promise is what the
+screen does. `?` lists them all with their `help`. A global action belongs to
+the screen, so it runs with no row at all and a panel with no rows still has it.
+
 An action whose command prints a panel opens it here as it does in a terminal,
 and the server keeps the way back rather than the page: `depth` is how many
 panels are below the one being served, `POST /back` pops one, and a page at the
