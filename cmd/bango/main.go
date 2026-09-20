@@ -25,8 +25,11 @@ const (
 type Choice struct {
 	Action string `json:"action"`
 	Row    string `json:"row"`
-	Input  string `json:"input,omitempty"`
-	Pick   string `json:"choice,omitempty"`
+	// To is the far end of a selection. It is the row itself when nothing is
+	// selected, so an action written for a run of rows is also correct for one.
+	To    string `json:"to,omitempty"`
+	Input string `json:"input,omitempty"`
+	Pick  string `json:"choice,omitempty"`
 }
 
 func main() {

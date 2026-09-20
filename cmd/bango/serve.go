@@ -378,6 +378,11 @@ func (s *server) act(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	choice.Row = row.TargetID()
+	if choice.To != "" {
+		if far, ok := panel.Find(choice.To); ok {
+			choice.To = far.TargetID()
+		}
+	}
 	from := argvFor(action, &choice, s.opts.transport)
 	out, err := execute(action, &choice, s.opts.transport)
 	if err != nil {

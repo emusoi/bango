@@ -85,7 +85,7 @@ func TestARowSaysWhatItIsInATerminal(t *testing.T) {
 	m := &model{width: 80}
 	paint := colours()
 	draw := func(row bango.Row) string {
-		return m.paintRow(bango.Line{Row: row, Verbatim: true}, nil, "", paint)
+		return m.paintRow(bango.Line{Row: row, Verbatim: true}, nil, "", nil, paint)
 	}
 	one, two, three := draw(plain), draw(added), draw(removed)
 	for _, got := range []string{one, two, three} {

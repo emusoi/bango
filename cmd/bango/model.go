@@ -28,6 +28,7 @@ type model struct {
 	opts     options
 	producer []string
 	folded   map[string]bool
+	anchor   int // where a selection started, or -1 for none
 	query    string
 	cursor   int
 	state    mode
@@ -51,7 +52,7 @@ func newModel(panel bango.Panel, opts options, producer []string) *model {
 		height = 24
 	}
 	return &model{panel: panel, opts: opts, producer: producer,
-		folded: map[string]bool{}, width: width, height: height}
+		folded: map[string]bool{}, anchor: -1, width: width, height: height}
 }
 
 func (m *model) Init() tea.Cmd {
@@ -108,6 +109,43 @@ func (m *model) toMark(step int) {
 			return
 		}
 	}
+}
+
+// run is what an action is about: the row under the cursor, or the stretch
+// between where a selection started and where it is now.
+func (m *model) span() (bango.Row, bango.Row, bool) {
+	rows := m.rows()
+	if len(rows) == 0 {
+		return bango.Row{}, bango.Row{}, false
+	}
+	at := min(m.cursor, len(rows)-1)
+	if m.anchor < 0 || m.anchor >= len(rows) {
+		return rows[at], rows[at], true
+	}
+	from, to := m.anchor, at
+	if from > to {
+		from, to = to, from
+	}
+	return rows[from], rows[to], true
+}
+
+// picked names every row a selection covers, so a renderer can show the run
+// rather than only its ends.
+func (m *model) picked() map[string]bool {
+	out := map[string]bool{}
+	if m.anchor < 0 {
+		return out
+	}
+	rows := m.rows()
+	at := min(m.cursor, len(rows)-1)
+	from, to := m.anchor, at
+	if from > to {
+		from, to = to, from
+	}
+	for i := from; i >= 0 && i <= to && i < len(rows); i++ {
+		out[rows[i].ID] = true
+	}
+	return out
 }
 
 func (m *model) selected() (bango.Row, bool) {
@@ -201,6 +239,12 @@ func (m *model) key(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.typed = m.query
 	case "?":
 		m.state = helping
+	case "v":
+		if m.anchor >= 0 {
+			m.anchor = -1
+		} else {
+			m.anchor = m.cursor
+		}
 	case "]":
 		m.toMark(1)
 	case "[":
@@ -235,11 +279,11 @@ func (m *model) choosing(key string) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) pick(name, chosen string) {
-	row, ok := m.selected()
+	from, to, ok := m.span()
 	if !ok {
 		return
 	}
-	m.run(name, &Choice{Action: name, Row: row.TargetID(), Pick: chosen})
+	m.run(name, &Choice{Action: name, Row: from.TargetID(), To: to.TargetID(), Pick: chosen})
 }
 
 func (m *model) typing(msg tea.KeyMsg, done func(string)) (tea.Model, tea.Cmd) {
@@ -368,11 +412,13 @@ func (m *model) commitCmd(name, input string) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) commit(name, input string) {
-	row, ok := m.selected()
+	from, to, ok := m.span()
 	if !ok {
 		return
 	}
-	m.run(name, &Choice{Action: name, Row: row.TargetID(), Input: input})
+	// A selection is spent on the action it was made for.
+	m.anchor = -1
+	m.run(name, &Choice{Action: name, Row: from.TargetID(), To: to.TargetID(), Input: input})
 }
 
 func (m *model) run(name string, choice *Choice) {
@@ -435,6 +481,12 @@ func argvFor(action bango.Action, choice *Choice, through bango.Transport) []str
 		switch arg {
 		case "{row}":
 			args = append(args, choice.Row)
+		case "{to}":
+			to := choice.To
+			if to == "" {
+				to = choice.Row
+			}
+			args = append(args, to)
 		case "{input}":
 			args = append(args, choice.Input)
 		case "{choice}":

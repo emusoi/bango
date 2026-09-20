@@ -45,6 +45,7 @@ tr.lined td { padding-top: 1px; padding-bottom: 1px; line-height: 1.5; }
 tr.added td { background: var(--added); box-shadow: inset 2px 0 0 var(--added-edge); }
 tr.removed td { background: var(--removed); box-shadow: inset 2px 0 0 var(--removed-edge); }
 tr.sel { background: var(--sel); }
+tr.picked td { background: var(--sel); box-shadow: inset 2px 0 0 var(--dirty); }
 tr.lined.sel td { background: var(--sel); box-shadow: inset 2px 0 0 var(--muted); }
 td { padding: 5px 14px 5px 0; vertical-align: top; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; max-width: 48ch; width: 1%; }
@@ -137,7 +138,7 @@ const token = new URLSearchParams(location.search).get("t") || "";
 const glyphs = { here: "▸", new: "○", working: "◐", waiting: "⏎",
   done: "✓", dirty: "●", blocked: "⨯", detached: "⚠" };
 let panel = null, cursor = null, readOnly = false, depth = 0, helping = false;
-let query = "";
+let query = "", anchor = null;
 const folded = new Set();
 
 const $ = (id) => document.getElementById(id);
@@ -199,9 +200,20 @@ function shut(section) {
   return section.collapsed || folded.has(section.id);
 }
 
+// Every row between where a selection started and where the cursor is now.
+function picked(shown) {
+  if (anchor === null) return new Set();
+  const ids = rowsOf(shown).map(([r]) => r.id);
+  let from = ids.indexOf(anchor), to = ids.indexOf(cursor);
+  if (from < 0 || to < 0) return new Set();
+  if (from > to) [from, to] = [to, from];
+  return new Set(ids.slice(from, to + 1));
+}
+
 function draw(follow) {
   if (!panel) return;
   const shown = sifted(panel);
+  const run = picked(shown);
   $("back").hidden = depth === 0;
   $("title").textContent = panel.title || "";
   $("subtitle").textContent = panel.subtitle || "";
@@ -227,7 +239,7 @@ function draw(follow) {
     if (shut(section)) continue;
     const verbatim = section.layout === "lines";
     const walk = (row, depth) => {
-      table.append(line(row, depth, cols, verbatim));
+      table.append(line(row, depth, cols, verbatim, run));
       if (row.id === cursor) {
         const detail = details(row);
         if (detail) table.append(detail);
@@ -237,7 +249,8 @@ function draw(follow) {
     (section.rows || []).forEach(r => walk(r, 0));
   }
   if (table.childElementCount) body.append(table);
-  $("hints").textContent = [...(panel.hints || []), "/ filter", "] next mark"].join("  ·  ");
+  $("hints").textContent = [...(panel.hints || []), "/ filter", "] next mark",
+    anchor === null ? "v select" : "v stop selecting"].join("  ·  ");
 
   const globals = $("globals");
   globals.replaceChildren();
@@ -312,10 +325,11 @@ function heading(section) {
   return tr;
 }
 
-function line(row, depth, cols, verbatim) {
+function line(row, depth, cols, verbatim, run) {
   const tr = document.createElement("tr");
   tr.classList.add(verbatim ? "lined" : "listed");
   if (row.id === cursor) tr.classList.add("sel");
+  if (run && run.has(row.id) && row.id !== cursor) tr.classList.add("picked");
   if (row.dim) tr.classList.add("dim");
   if (row.tone) tr.classList.add(row.tone);
   tr.onclick = () => { cursor = row.id; draw(false); };
@@ -423,10 +437,15 @@ async function run(name, action, row) {
   if (action.confirm && !(await ask(action.confirm, row, false))) return;
   $("alert").textContent = "";
   const was = depth;
+  const run = [...picked(sifted(panel))];
+  const here = row ? row.id : (cursor || "");
+  const from = run.length ? run[0] : here;
+  const to = run.length ? run[run.length - 1] : here;
+  anchor = null;
   const response = await fetch("/act?t=" + encodeURIComponent(token), {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Bango-Token": token },
-    body: JSON.stringify({ action: name, row: row ? row.id : (cursor || ""), input }),
+    body: JSON.stringify({ action: name, row: from, to, input }),
   });
   if (!response.ok) {
     const body = await response.text();
@@ -454,6 +473,7 @@ function adopt(payload, moved) {
   // one. Left behind, it silently empties whatever you arrive at.
   if (moved) {
     cursor = null;
+    anchor = null;
     query = "";
     $("sift-text").value = "";
     sift(false);
@@ -570,6 +590,12 @@ function listen() {
 
 document.addEventListener("keydown", (event) => {
   if (!panel || $("ask").open) return;
+  if (event.key === "v") {
+    event.preventDefault();
+    anchor = anchor === null ? cursor : null;
+    draw(false);
+    return;
+  }
   if (event.key === "/") { event.preventDefault(); sift(true); return; }
   if (event.key === "?") { event.preventDefault(); helping = !helping; drawHelp(); return; }
   if (event.key === "Escape" || event.key === "q") { event.preventDefault(); back(); return; }

@@ -136,6 +136,7 @@ func (m *model) paint(reserve int) []string {
 	if row, ok := m.selected(); ok {
 		cursor = row.ID
 	}
+	picked := m.picked()
 	var body []string
 	at := -1
 	cols := bango.Columns(inColumns, m.width)
@@ -147,7 +148,7 @@ func (m *model) paint(reserve int) []string {
 		if line.Row.ID == cursor {
 			at = len(body)
 		}
-		body = append(body, m.paintRow(line, cols, cursor, paint))
+		body = append(body, m.paintRow(line, cols, cursor, picked, paint))
 		if line.Row.ID == cursor {
 			for _, fact := range line.Row.Facts {
 				body = append(body, paint.fact.Render(clip("    "+fact, m.width)))
@@ -193,10 +194,10 @@ func (m *model) body(reserve int) int {
 	return m.height - head - foot - reserve
 }
 
-func (m *model) paintRow(line bango.Line, cols []bango.Column, cursor string, paint palette) string {
-	here := line.Row.ID == cursor
+func (m *model) paintRow(line bango.Line, cols []bango.Column, cursor string, picked map[string]bool, paint palette) string {
+	here := line.Row.ID == cursor || picked[line.Row.ID]
 	bar := " "
-	if here {
+	if line.Row.ID == cursor || picked[line.Row.ID] {
 		bar = bango.MarkHere.Glyph(m.opts.ascii)
 	}
 	pieces := []string{paint.marks[bango.MarkHere].Render(bar)}

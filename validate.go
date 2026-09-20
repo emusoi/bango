@@ -14,7 +14,7 @@ var idPattern = regexp.MustCompile(`^[A-Za-z0-9._:/-]+$`)
 var reservedKeys = map[string]bool{
 	"/": true, "?": true, "q": true, "⎋": true, "esc": true,
 	"j": true, "k": true, "g": true, "G": true, " ": true,
-	"]": true, "[": true,
+	"]": true, "[": true, "v": true,
 }
 
 func ReservedKeys() []string {
