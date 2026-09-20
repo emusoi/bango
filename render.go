@@ -55,10 +55,16 @@ func Render(p Panel, style Style) []string {
 	shown := Filter(p, style.Query)
 	all := Lines(shown, style.Folded)
 
-	var rows []Row
+	// Two counts, and they are not the same one: whether there is anything to
+	// show at all, and which rows a column may be measured from.
+	shownRows, inColumns := 0, []Row(nil)
 	for _, line := range all {
-		if !line.Header && !line.Verbatim {
-			rows = append(rows, line.Row)
+		if line.Header {
+			continue
+		}
+		shownRows++
+		if !line.Verbatim {
+			inColumns = append(inColumns, line.Row)
 		}
 	}
 
@@ -69,7 +75,7 @@ func Render(p Panel, style Style) []string {
 	head = append(head, "")
 	foot := footer(p, style)
 
-	if len(rows) == 0 {
+	if shownRows == 0 {
 		if p.Empty != "" {
 			head = append(head, clip(p.Empty, style.Width))
 		}
@@ -78,7 +84,7 @@ func Render(p Panel, style Style) []string {
 
 	var body []string
 	at := -1
-	cols := Columns(rows, style.Width)
+	cols := Columns(inColumns, style.Width)
 	for _, line := range all {
 		if line.Header {
 			body = append(body, clip(line.Label, style.Width))

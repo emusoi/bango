@@ -58,10 +58,15 @@ function M.render(panel, state)
   local shown = layout.filter(panel, state.query)
   local lines = layout.rows(shown, state.folded)
 
-  local rows = {}
+  -- Two counts, and they are not the same one: whether there is anything to
+  -- show at all, and which rows a column may be measured from.
+  local shown, rows = 0, {}
   for _, line in ipairs(lines) do
-    if not line.header and not line.verbatim then
-      table.insert(rows, line.row)
+    if not line.header then
+      shown = shown + 1
+      if not line.verbatim then
+        table.insert(rows, line.row)
+      end
     end
   end
 
@@ -80,7 +85,7 @@ function M.render(panel, state)
   end
   add("", nil)
 
-  if #rows == 0 then
+  if shown == 0 then
     add(panel.empty or "nothing here", M.groups.dim)
     return { lines = text, marks = marks, places = places, rows = rows }
   end

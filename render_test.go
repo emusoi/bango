@@ -363,3 +363,23 @@ func TestAnEmptyPanelOmitsItsSectionsRatherThanNullingThem(t *testing.T) {
 		t.Errorf("it must still be a panel: %v", err)
 	}
 }
+
+// A panel whose only section is lines is not an empty panel. The rows a column
+// is measured from are a subset of the rows there are, and the difference used
+// to read as nothing to show.
+func TestAPanelOfOnlyLinesIsNotEmpty(t *testing.T) {
+	p := Panel{Version: Version, ID: "read", Title: "read", Empty: "nothing here",
+		Sections: []Section{{ID: "f0", Label: "token.go", Layout: LayoutLines, Rows: []Row{
+			{ID: "token.go:new:1", Fields: []Field{{Name: "code", Value: "   1 + package auth"}}},
+		}}}}
+	if err := Validate(&p); err != nil {
+		t.Fatal(err)
+	}
+	out := strings.Join(Render(p, Style{Width: 60}), "\n")
+	if strings.Contains(out, "nothing here") {
+		t.Fatalf("a panel with a row in it rendered as empty:\n%s", out)
+	}
+	if !strings.Contains(out, "package auth") {
+		t.Fatalf("the row is missing:\n%s", out)
+	}
+}

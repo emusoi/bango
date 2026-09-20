@@ -20,8 +20,9 @@ body { margin: 0; background: var(--bg); color: var(--fg);
 main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
 h1 { font-size: 15px; font-weight: 600; margin: 0; }
 .sub { color: var(--muted); margin: 2px 0 20px; }
-.section { color: var(--muted); font-size: 12px;
-  text-transform: lowercase; letter-spacing: .04em; }
+/* A label is the producer's words — a path, a ref, a name — so it is drawn
+   as it was written. Lowercasing one quietly changed what it said. */
+.section { color: var(--muted); font-size: 12px; letter-spacing: .04em; }
 td.section { padding: 18px 0 6px; max-width: none; }
 td.verbatim { max-width: none; width: auto; white-space: pre; overflow: visible;
   text-overflow: clip; }
