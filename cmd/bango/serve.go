@@ -31,6 +31,7 @@ type server struct {
 
 	mu       sync.RWMutex
 	panel    bango.Panel
+	stack    []bango.Panel
 	trouble  string
 	revision int
 
@@ -70,6 +71,7 @@ func serve(producer []string, opts options, addr string, readOnly bool) int {
 	mux.HandleFunc("/panel", s.guard(s.current))
 	mux.HandleFunc("/events", s.guard(s.events))
 	mux.HandleFunc("/act", s.guard(s.act))
+	mux.HandleFunc("/back", s.guard(s.back))
 
 	fmt.Printf("http://%s/?t=%s\n", s.addr, s.token)
 	if s.readOnly {
@@ -196,11 +198,51 @@ func (s *server) snapshot() (bango.Panel, string, int) {
 	return s.panel, s.trouble, s.revision
 }
 
+func (s *server) depth() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.stack)
+}
+
+// landed is what the terminal does with an action's output: a command that
+// printed a panel opens it, and anything else means refresh from the producer.
+// Nothing here reads the action's `panel` field, because the output already
+// says whether there is one.
+func (s *server) landed(out []byte) error {
+	next, ok := asPanel(out, s.opts.want)
+	if !ok {
+		return s.refresh()
+	}
+	s.mu.Lock()
+	s.stack = append(s.stack, s.panel)
+	s.panel, s.trouble = next, ""
+	s.revision++
+	s.mu.Unlock()
+	s.announce()
+	return nil
+}
+
+// back returns to the panel an opened one was opened from. A page that is
+// already at the bottom stays there.
+func (s *server) back(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	if len(s.stack) > 0 {
+		s.panel = s.stack[len(s.stack)-1]
+		s.stack = s.stack[:len(s.stack)-1]
+		s.trouble = ""
+		s.revision++
+	}
+	s.mu.Unlock()
+	s.announce()
+	s.current(w, r)
+}
+
 func (s *server) current(w http.ResponseWriter, r *http.Request) {
 	panel, trouble, revision := s.snapshot()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
 		"revision": revision, "readOnly": s.readOnly, "panel": panel, "trouble": trouble,
+		"depth": s.depth(),
 	})
 }
 
@@ -239,7 +281,8 @@ func (s *server) events(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) send(w http.ResponseWriter, flusher http.Flusher) {
 	panel, trouble, revision := s.snapshot()
-	body, err := json.Marshal(map[string]any{"revision": revision, "panel": panel, "trouble": trouble})
+	body, err := json.Marshal(map[string]any{"revision": revision, "panel": panel,
+		"trouble": trouble, "depth": s.depth()})
 	if err != nil {
 		return
 	}
@@ -272,6 +315,9 @@ func (s *server) refresh() error {
 
 func (s *server) poll(every time.Duration) {
 	for range time.Tick(every) {
+		if s.depth() > 0 {
+			continue
+		}
 		s.refresh()
 	}
 }
@@ -310,12 +356,13 @@ func (s *server) act(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	choice.Row = row.TargetID()
-	if _, err := execute(action, &choice, s.opts.transport); err != nil {
+	out, err := execute(action, &choice, s.opts.transport)
+	if err != nil {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
-	if err := s.refresh(); err != nil {
+	if err := s.landed(out); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

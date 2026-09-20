@@ -228,9 +228,17 @@ http://127.0.0.1:59065/?t=31c073d0…
 | | |
 |---|---|
 | `GET /` | the page |
-| `GET /panel` | `{revision, readOnly, panel}` |
-| `GET /events` | server-sent events: one `id: <revision>` + `data: {panel}` per change |
+| `GET /panel` | `{revision, readOnly, panel, depth}` |
+| `GET /events` | server-sent events: one `id: <revision>` + `data: {panel, depth}` per change |
 | `POST /act` | `{action, row, input}` — runs it, refreshes, returns the new panel |
+| `POST /back` | leaves the panel an action opened, for the one it was opened from |
+
+An action whose command prints a panel opens it here as it does in a terminal,
+and the server keeps the way back rather than the page: `depth` is how many
+panels are below the one being served, `POST /back` pops one, and a page at the
+bottom stays there. `--watch` does not re-run the producer while an opened panel
+is showing, because that panel came from an action's output and there is nothing
+to re-run.
 
 **Server-sent events, not websockets.** The server→client side is a one-way
 stream of panels, which is exactly what SSE is, in one HTTP request, with

@@ -30,6 +30,7 @@ func ask(s *server, method, path string, body string, set func(*http.Request)) *
 	mux := http.NewServeMux()
 	mux.HandleFunc("/panel", s.guard(s.current))
 	mux.HandleFunc("/act", s.guard(s.act))
+	mux.HandleFunc("/back", s.guard(s.back))
 	mux.ServeHTTP(recorder, request)
 	return recorder
 }
@@ -153,4 +154,54 @@ func TestAProducerThatStartsFailingIsSaidOutLoud(t *testing.T) {
 	if _, trouble, _ = s.snapshot(); trouble != "" {
 		t.Errorf("a producer that recovers must clear the complaint, got %q", trouble)
 	}
+}
+
+const opened = `{"bango":1,"id":"deeper","title":"deeper","sections":[{"id":"s","rows":[{"id":"r2","fields":[{"name":"a","value":"two"}]}]}]}`
+
+// An action whose command prints a panel opens it, the way it does in a
+// terminal, and the page can come back to the one it was opened from.
+func TestAnActionThatPrintsAPanelOpensIt(t *testing.T) {
+	s := testServer(t, false)
+	s.panel.Actions = map[string]bango.Action{
+		"open": {Key: "o", Verb: "printf", Args: []string{"%s", opened}, Panel: "deeper", Global: true},
+	}
+	got := ask(s, "POST", "/act?t=secret", `{"action":"open","row":"r"}`, nil)
+	if got.Code != http.StatusOK {
+		t.Fatalf("open got %d: %s", got.Code, got.Body)
+	}
+	if id, depth := served(t, got); id != "deeper" || depth != 1 {
+		t.Fatalf("after opening, serving %q at depth %d", id, depth)
+	}
+
+	back := ask(s, "POST", "/back?t=secret", "", nil)
+	if back.Code != http.StatusOK {
+		t.Fatalf("back got %d: %s", back.Code, back.Body)
+	}
+	if id, depth := served(t, back); id != "t" || depth != 0 {
+		t.Fatalf("after back, serving %q at depth %d", id, depth)
+	}
+}
+
+// Going back from the bottom is not an error; the page simply stays there.
+func TestBackAtTheBottomStaysPut(t *testing.T) {
+	s := testServer(t, false)
+	got := ask(s, "POST", "/back?t=secret", "", nil)
+	if got.Code != http.StatusOK {
+		t.Fatalf("back got %d: %s", got.Code, got.Body)
+	}
+	if id, depth := served(t, got); id != "t" || depth != 0 {
+		t.Fatalf("serving %q at depth %d", id, depth)
+	}
+}
+
+func served(t *testing.T, got *httptest.ResponseRecorder) (string, int) {
+	t.Helper()
+	var payload struct {
+		Panel bango.Panel `json:"panel"`
+		Depth int         `json:"depth"`
+	}
+	if err := json.Unmarshal(got.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	return payload.Panel.ID, payload.Depth
 }

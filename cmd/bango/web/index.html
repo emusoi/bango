@@ -49,12 +49,16 @@ button:hover { background: var(--sel); }
 button[disabled] { opacity: .4; cursor: not-allowed; }
 .empty { color: var(--muted); padding: 24px 0; }
 .hints { margin-top: 28px; color: var(--muted); font-size: 12px; }
+.back { color: var(--muted); font-size: 12px; margin-bottom: 10px; cursor: pointer;
+  background: none; border: none; padding: 0; font-family: inherit; }
+.back:hover { color: var(--fg); background: none; }
 .alert { margin-top: 14px; color: var(--blocked); white-space: pre-wrap; }
 .off { position: fixed; top: 10px; right: 12px; color: var(--muted); font-size: 12px; }
 </style>
 </head>
 <body>
 <main>
+  <button class="back" id="back" hidden>← back  esc</button>
   <h1 id="title"></h1>
   <div class="sub" id="subtitle"></div>
   <div id="body"></div>
@@ -66,9 +70,10 @@ button[disabled] { opacity: .4; cursor: not-allowed; }
 const token = new URLSearchParams(location.search).get("t") || "";
 const glyphs = { here: "▸", new: "○", working: "◐", waiting: "⏎",
   done: "✓", dirty: "●", blocked: "⨯", detached: "⚠" };
-let panel = null, cursor = null, readOnly = false;
+let panel = null, cursor = null, readOnly = false, depth = 0;
 
 const $ = (id) => document.getElementById(id);
+$("back").onclick = () => back();
 
 function rowsOf(p) {
   const out = [];
@@ -87,6 +92,7 @@ function columns(p) {
 
 function draw() {
   if (!panel) return;
+  $("back").hidden = depth === 0;
   $("title").textContent = panel.title || "";
   $("subtitle").textContent = panel.subtitle || "";
   const body = $("body");
@@ -212,9 +218,26 @@ async function run(name, action, row) {
     $("alert").textContent = unwrap(body);
     return;
   }
-  const next = await response.json();
-  panel = next.panel;
+  adopt(await response.json());
+}
+
+// A panel arrives with the depth it sits at, so the page never counts its own
+// way back — the server is the one that knows.
+function adopt(payload) {
+  panel = payload.panel;
+  depth = payload.depth || 0;
+  cursor = null;
+  $("alert").textContent = payload.trouble || "";
   draw();
+}
+
+async function back() {
+  if (!depth) return;
+  const response = await fetch("/back?t=" + encodeURIComponent(token), {
+    method: "POST", headers: { "X-Bango-Token": token },
+  });
+  if (!response.ok) return;
+  adopt(await response.json());
 }
 
 // The server reports a refused action as {"error": "<what the producer said>"}.
@@ -233,6 +256,7 @@ function listen() {
   source.onmessage = (event) => {
     const payload = JSON.parse(event.data);
     panel = payload.panel;
+    depth = payload.depth || 0;
     $("alert").textContent = payload.trouble || "";
     $("off").hidden = true;
     draw();
@@ -246,6 +270,7 @@ document.addEventListener("keydown", (event) => {
   let at = rows.findIndex(([r]) => r.id === cursor);
   if (event.key === "j" || event.key === "ArrowDown") at = Math.min(at + 1, rows.length - 1);
   else if (event.key === "k" || event.key === "ArrowUp") at = Math.max(at - 1, 0);
+  else if (event.key === "Escape" || event.key === "q") { event.preventDefault(); back(); return; }
   else return;
   event.preventDefault();
   cursor = rows[at][0].id;
@@ -255,9 +280,9 @@ document.addEventListener("keydown", (event) => {
 fetch("/panel?t=" + encodeURIComponent(token), { headers: { "X-Bango-Token": token } })
   .then(r => r.json())
   .then(payload => {
-    panel = payload.panel; readOnly = payload.readOnly;
-    $("alert").textContent = payload.trouble || "";
-    draw(); listen();
+    readOnly = payload.readOnly;
+    adopt(payload);
+    listen();
   })
   .catch(() => { $("title").textContent = "bango: could not reach the server"; });
 </script>
